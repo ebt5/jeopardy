@@ -6,6 +6,7 @@ import {
   STORAGE_KEY,
 } from './types';
 import { createBlankGame } from './demo';
+import { DEFAULT_API_KEY } from './defaults';
 
 function normalizeFinalJeopardy(raw: unknown): FinalJeopardy {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_FINAL_JEOPARDY };
@@ -50,7 +51,9 @@ export function saveGameConfig(config: GameConfig): void {
 }
 
 export function loadApiKey(): string {
-  return localStorage.getItem(API_KEY_STORAGE) ?? '';
+  const stored = localStorage.getItem(API_KEY_STORAGE);
+  if (stored && stored.trim()) return stored.trim();
+  return DEFAULT_API_KEY;
 }
 
 export function saveApiKey(key: string): void {

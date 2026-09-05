@@ -37,7 +37,7 @@ npm run preview
 4. **Final Jeopardy** -- edit category / answer / question in Setup. In play mode, use the Final Jeopardy header button.
 5. **Saved boards** -- Save / Load / Delete boards (categories + Final Jeopardy only). Also Download JSON / Import JSON. Players are kept when loading.
 6. **Load demo game** -- sample board (one DD + Final Jeopardy) for offline play.
-7. **AI Seed (optional)** -- paste an OpenAI API key (browser localStorage only), write a prompt, click Generate game (model gpt-4o-mini). Parses one Daily Double + Final Jeopardy (with fallbacks).
+7. **AI Seed (optional)** -- paste an xAI API key (browser localStorage only), write a prompt, click Generate game (model grok-3-mini). Parses one Daily Double + Final Jeopardy (with fallbacks).
 8. **Start Game** -- enter play mode (resets scores and played cells).
 9. **Play** -- click a dollar cell; Space flips answer to question; +/- adjusts by clue value (or DD wager); Esc closes and marks played.
 
@@ -59,6 +59,6 @@ Game config and saved boards persist in localStorage (jeopardy-game-config, jeop
 
 ## Notes
 
-- OpenAI API key is optional and only needed for AI generate.
+- xAI API key is optional and only needed for AI generate.
 - Key never leaves the browser except when generating.
 - No backend required.

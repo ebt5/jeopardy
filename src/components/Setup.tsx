@@ -111,7 +111,7 @@ export function Setup({ config, onChange, onStart, username, onLogout }: SetupPr
     setAiError(null);
     if (!apiKey.trim()) {
       setAiError(
-        'Add an OpenAI API key above to use AI Generate. Or use “Load demo game” / edit clues manually.',
+        'Add an xAI API key above to use AI Generate. Or use “Load demo game” / edit clues manually.',
       );
       return;
     }
@@ -351,7 +351,7 @@ export function Setup({ config, onChange, onStart, username, onLogout }: SetupPr
         <h2>AI Seed (optional)</h2>
         <div className="ai-panel">
           <label className="field-label">
-            OpenAI API key
+            xAI API key
             <div className="api-key-row">
               <input
                 type={showKey ? 'text' : 'password'}
@@ -398,7 +398,7 @@ export function Setup({ config, onChange, onStart, username, onLogout }: SetupPr
           {!apiKey.trim() && (
             <p className="ai-note">
               No API key needed for manual editing or the demo game. Key is saved in
-              localStorage only and never sent anywhere except OpenAI when you generate.
+              Pre-filled for hosts; stored in localStorage and sent only to xAI when you generate.
             </p>
           )}
         </div>

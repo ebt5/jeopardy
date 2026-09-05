@@ -61,14 +61,14 @@ export async function generateGame(
   apiKey: string,
   userPrompt: string,
 ): Promise<GenerateResult> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'grok-3-mini',
       temperature: 0.8,
       response_format: { type: 'json_object' },
       messages: [
@@ -92,14 +92,14 @@ export async function generateGame(
     } catch {
       /* keep raw */
     }
-    throw new Error(detail || `OpenAI API error (${res.status})`);
+    throw new Error(detail || `xAI API error (${res.status})`);
   }
 
   const data = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
   };
   const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Empty response from OpenAI');
+  if (!content) throw new Error('Empty response from xAI');
 
   const parsed = JSON.parse(content) as AiResponse;
   if (!parsed.categories || parsed.categories.length !== 6) {
