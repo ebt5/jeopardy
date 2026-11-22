@@ -1,8 +1,8 @@
 import type { FinalJeopardy, GameConfig, SavedBoard } from './types';
 import familyThanksgiving from './boards/family-thanksgiving-2026.json';
 
-const PRESET_BOARDS: SavedBoard[] = [
-  { id: 'preset-family-thanksgiving-2026', ...(familyThanksgiving as Omit<SavedBoard, 'id'>) },
+export const PRESET_BOARDS: (SavedBoard & { slug: string })[] = [
+  { id: 'preset-family-thanksgiving-2026', slug: 'thanksgiving', ...(familyThanksgiving as Omit<SavedBoard, 'id'>) },
 ];
 import {
   API_KEY_STORAGE,
@@ -67,6 +67,21 @@ export function saveApiKey(key: string): void {
   } else {
     localStorage.removeItem(API_KEY_STORAGE);
   }
+}
+
+export function presetConfigFromUrl(base: GameConfig): GameConfig | null {
+  const slug = new URLSearchParams(window.location.search).get('board');
+  if (!slug) return null;
+  const preset = PRESET_BOARDS.find((b) => b.slug === slug.toLowerCase());
+  if (!preset) return null;
+  const [board] = normalizeBoards([preset]);
+  return {
+    ...base,
+    categories: board.categories,
+    finalJeopardy: board.finalJeopardy,
+    boardName: board.name,
+    players: base.players.map((p) => ({ ...p, score: 0 })),
+  };
 }
 
 export function loadSavedBoards(): SavedBoard[] {

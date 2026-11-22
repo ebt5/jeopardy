@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AppMode, GameConfig } from './types';
 import { clearSession, loadSession, type Session } from './auth';
-import { loadGameConfig, saveGameConfig } from './storage';
+import { loadGameConfig, presetConfigFromUrl, saveGameConfig } from './storage';
 import { Board } from './components/Board';
 import { ClueView } from './components/ClueView';
 import { FinalJeopardyView } from './components/FinalJeopardy';
@@ -18,13 +18,19 @@ interface ActiveClue {
 export default function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
   const [mode, setMode] = useState<AppMode>('setup');
-  const [config, setConfig] = useState<GameConfig>(() => loadGameConfig());
+  const [config, setConfig] = useState<GameConfig>(() => {
+    const base = loadGameConfig();
+    return presetConfigFromUrl(base) ?? base;
+  });
   const [active, setActive] = useState<ActiveClue | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [showFinal, setShowFinal] = useState(false);
 
   useEffect(() => {
     saveGameConfig(config);
+    if (window.location.search.includes('board=')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
   }, [config]);
 
   const handleLogout = () => {
