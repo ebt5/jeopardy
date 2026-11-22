@@ -1,4 +1,9 @@
 import type { FinalJeopardy, GameConfig, SavedBoard } from './types';
+import familyThanksgiving from './boards/family-thanksgiving-2026.json';
+
+const PRESET_BOARDS: SavedBoard[] = [
+  { id: 'preset-family-thanksgiving-2026', ...(familyThanksgiving as Omit<SavedBoard, 'id'>) },
+];
 import {
   API_KEY_STORAGE,
   DEFAULT_FINAL_JEOPARDY,
@@ -65,11 +70,25 @@ export function saveApiKey(key: string): void {
 }
 
 export function loadSavedBoards(): SavedBoard[] {
+  const stored = loadStoredBoards();
+  const ids = new Set(stored.map((b) => b.id));
+  return [...stored, ...normalizeBoards(PRESET_BOARDS.filter((b) => !ids.has(b.id)))];
+}
+
+function loadStoredBoards(): SavedBoard[] {
   try {
     const raw = localStorage.getItem(SAVED_BOARDS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as SavedBoard[];
     if (!Array.isArray(parsed)) return [];
+    return normalizeBoards(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeBoards(parsed: SavedBoard[]): SavedBoard[] {
+  {
     return parsed.map((b) => ({
       ...b,
       finalJeopardy: normalizeFinalJeopardy(b.finalJeopardy),
@@ -82,8 +101,6 @@ export function loadSavedBoards(): SavedBoard[] {
         })),
       })),
     }));
-  } catch {
-    return [];
   }
 }
 
@@ -92,16 +109,16 @@ export function saveSavedBoards(boards: SavedBoard[]): void {
 }
 
 export function upsertSavedBoard(board: SavedBoard): SavedBoard[] {
-  const boards = loadSavedBoards().filter((b) => b.id !== board.id);
+  const boards = loadStoredBoards().filter((b) => b.id !== board.id);
   boards.unshift(board);
   saveSavedBoards(boards);
   return boards;
 }
 
 export function deleteSavedBoard(id: string): SavedBoard[] {
-  const boards = loadSavedBoards().filter((b) => b.id !== id);
+  const boards = loadStoredBoards().filter((b) => b.id !== id);
   saveSavedBoards(boards);
-  return boards;
+  return loadSavedBoards();
 }
 
 /** Strip played flags for export / saved boards */

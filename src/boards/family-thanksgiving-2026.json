@@ -1,0 +1,251 @@
+{
+  "name": "Family Thanksgiving 2026",
+  "savedAt": "2026-11-22T12:00:00-07:00",
+  "categories": [
+    {
+      "name": "THANKSGIVING DINNER AT THE MOVIES",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Steve Martin and John Candy endure a disastrous trip home for Thanksgiving dinner in this 1987 comedy",
+          "question": "What is Planes, Trains and Automobiles?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "Sandra Bullock's character turns off the football game so her family can join Michael Oher at the Thanksgiving table in this 2009 film",
+          "question": "What is The Blind Side?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "At a 2002 Thanksgiving dinner, Norman Osborn notices a cut on Peter Parker's arm and figures out his secret in this superhero film",
+          "question": "What is Spider-Man?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "In this 2013 animated movie, two turkeys travel back in time to get turkey off the menu at the first Thanksgiving",
+          "question": "What is Free Birds?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "In this 1976 boxing classic, Paulie angrily hurls the Thanksgiving turkey out into the alley",
+          "question": "What is Rocky?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "PIXAR PALS",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "\"To infinity and beyond!\" is the catchphrase of this space ranger toy",
+          "question": "Who is Buzz Lightyear?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "Carl Fredricksen ties thousands of balloons to his house and floats away in this film",
+          "question": "What is Up?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "Joy, Sadness, Anger, Fear and this green emotion live inside Riley's head",
+          "question": "What is Disgust?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "This rat dreams of being a chef in Paris in Ratatouille",
+          "question": "Who is Remy?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "In Coco, Miguel idolizes this famous singer who turns out to be a villain",
+          "question": "Who is Ernesto de la Cruz?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "GOBBLE GOBBLE",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "This tart red sauce often slides out of the can still showing the ridges",
+          "question": "What is cranberry sauce?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "A male turkey is called a gobbler or this 3-letter name",
+          "question": "What is a tom?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "It's the fleshy flap that dangles over a turkey's beak",
+          "question": "What is a snood?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Each year the President spares a turkey's life in this White House ceremony",
+          "question": "What is the turkey pardon?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "The author of \"Mary Had a Little Lamb,\" she campaigned until Lincoln made Thanksgiving a national holiday in 1863",
+          "question": "Who is Sarah Josepha Hale?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "PARADES & PIGSKIN",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "This department store has run New York City's famous Thanksgiving Day Parade since 1924",
+          "question": "What is Macy's?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "This Motor City NFL team has hosted a Thanksgiving game nearly every year since 1934",
+          "question": "Who are the Detroit Lions?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "Known as \"America's Team,\" they've hosted a Thanksgiving game almost every year since 1966",
+          "question": "Who are the Dallas Cowboys?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "In 1927 this cartoon cat became the first character balloon in the Macy's parade",
+          "question": "Who is Felix the Cat?",
+          "played": false,
+          "dailyDouble": true
+        },
+        {
+          "value": 1000,
+          "answer": "Worth 2 points, it's scored when the offense gets tackled in its own end zone",
+          "question": "What is a safety?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "RHYME TIME",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Dried, chewy snack meat made from a gobbler",
+          "question": "What is turkey jerky?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "The brown sauce served to sailors",
+          "question": "What is navy gravy?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "The fellow in charge of baking dessert",
+          "question": "Who is the pie guy?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "A big animal served at the holiday meal",
+          "question": "What is a feast beast?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "Bread cubes that are only pretending",
+          "question": "What is bluffing stuffing?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "FAMOUS FAMILIES",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Homer, Marge, Bart, Lisa and Maggie",
+          "question": "Who are the Simpsons?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "Bob, Helen, Violet, Dash and baby Jack-Jack, also known as The Incredibles",
+          "question": "Who are the Parrs?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "Harry Potter's best friend Ron belongs to this red-headed wizarding family",
+          "question": "Who are the Weasleys?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Everyone in this Encanto family gets a magical gift except Mirabel",
+          "question": "Who are the Madrigals?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "\"Here's the story of a lovely lady\" begins the theme song for this 1970s TV family with six kids",
+          "question": "Who are the Bradys?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    }
+  ],
+  "finalJeopardy": {
+    "category": "THE FIRST THANKSGIVING",
+    "answer": "About 90 men of this Native American nation, led by Massasoit, joined the Pilgrims for the 1621 harvest feast at Plymouth",
+    "question": "Who are the Wampanoag?"
+  }
+}
