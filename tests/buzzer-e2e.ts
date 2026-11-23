@@ -93,13 +93,26 @@ async function runTest() {
     // Check that players appear in lobby
     console.log('\n5. Verifying players in lobby...');
     await hostPage.waitForSelector('.lobby-player', { timeout: 5000 });
-    const lobbyPlayers = await hostPage.locator('.lobby-player-name').allTextContents();
+    let lobbyPlayers = await hostPage.locator('.lobby-player-name').allTextContents();
     console.log(`   Host sees players in lobby: ${lobbyPlayers.join(', ')}`);
     
     if (!lobbyPlayers.includes('Alice') || !lobbyPlayers.includes('Bob')) {
       throw new Error('Expected Alice and Bob in lobby');
     }
     console.log('   ✓ Both players visible in lobby');
+
+    // Add a manual (verbal) player
+    console.log('\n5b. Adding manual player Charlie...');
+    await hostPage.fill('input[placeholder="Add player without phone..."]', 'Charlie');
+    await hostPage.locator('.lobby-add-manual button:has-text("Add")').click();
+    await sleep(300);
+    
+    lobbyPlayers = await hostPage.locator('.lobby-player-name').allTextContents();
+    if (lobbyPlayers.includes('Charlie')) {
+      console.log('   ✓ Manual player Charlie added');
+    } else {
+      console.log('   ⚠ Could not add manual player');
+    }
 
     // Start the game from lobby
     console.log('\n6. Starting game from lobby...');
@@ -138,16 +151,25 @@ async function runTest() {
       console.log(`   ✓ Winner shown: ${winnerName}`);
     }
 
-    // === NEW: Test Wrong answer flow ===
-    console.log('\n9. Testing Wrong answer flow...');
-    await hostPage.click('.clue-body'); // Reveal the question first
-    await sleep(300);
+    // === Test grading before reveal (new feature) ===
+    console.log('\n9. Testing grading before reveal...');
     
+    // The grading buttons should be visible even before reveal
     const wrongBtn = hostPage.locator('.buzzer-answer-actions button:has-text("Wrong")');
+    const correctBtn = hostPage.locator('.buzzer-answer-actions button:has-text("Correct")');
     const wrongBtnVisible = await wrongBtn.isVisible();
+    const correctBtnVisible = await correctBtn.isVisible();
     
-    if (wrongBtnVisible) {
-      console.log('   ✓ Wrong button is visible');
+    if (wrongBtnVisible && correctBtnVisible) {
+      console.log('   ✓ Correct and Wrong buttons visible BEFORE reveal');
+      
+      // Check that the clue is NOT revealed yet
+      const clueLabel = await hostPage.textContent('.clue-label');
+      if (clueLabel === 'ANSWER') {
+        console.log('   ✓ Clue is still showing ANSWER (not revealed)');
+      }
+      
+      // Test the Wrong button - should deduct points and re-arm without revealing
       await wrongBtn.click();
       await sleep(500);
       
@@ -158,6 +180,14 @@ async function runTest() {
       // Phone 1 should be locked out, phone 2 can still buzz
       const phone1StatusAfterWrong = await phone1Page.textContent('.buzzer-status-text');
       console.log(`   Phone 1 status after wrong: ${phone1StatusAfterWrong}`);
+      
+      // Check clue is still showing ANSWER (not revealed after Wrong)
+      const clueLabelAfterWrong = await hostPage.textContent('.clue-label');
+      if (clueLabelAfterWrong === 'ANSWER') {
+        console.log('   ✓ Clue still shows ANSWER after Wrong (answer not auto-revealed)');
+      } else {
+        console.log(`   ⚠ Clue label changed to: ${clueLabelAfterWrong}`);
+      }
       
       // Phone 2 buzzes now
       if (phone2StatusAfterWrong?.includes('BUZZ NOW')) {
@@ -172,11 +202,70 @@ async function runTest() {
         }
       }
     } else {
-      console.log('   ⚠ Wrong button not visible (may need reveal first)');
+      console.log('   ⚠ Grading buttons not visible before reveal');
+      // Fall back to old flow
+      await hostPage.click('.clue-body');
+      await sleep(300);
     }
 
-    // Close clue with Correct or close
-    console.log('\n10. Closing clue...');
+    // Test peek feature
+    console.log('\n9b. Testing peek feature...');
+    const peekBtn = hostPage.locator('.clue-peek-btn');
+    if (await peekBtn.isVisible()) {
+      console.log('   ✓ Peek button is visible');
+    } else {
+      console.log('   ⚠ Peek button not visible (may be revealed)');
+    }
+
+    // Close current clue
+    console.log('\n10. Closing current clue...');
+    await hostPage.locator('.clue-close').click();
+    await sleep(500);
+
+    // Test manual player selection (Call on Player)
+    console.log('\n10b. Testing manual player selection...');
+    const secondClueButton = await hostPage.locator('.board-cell:not(.played)').first();
+    await secondClueButton.click();
+    await hostPage.waitForSelector('.clue-overlay');
+    await sleep(500);
+
+    // Look for "Call on Player" button (should appear when there are manual players)
+    const callOnPlayerBtn = hostPage.locator('button:has-text("Call on Player")');
+    if (await callOnPlayerBtn.isVisible()) {
+      console.log('   ✓ "Call on Player" button is visible');
+      await callOnPlayerBtn.click();
+      await sleep(300);
+
+      // Should show the manual picker modal
+      const manualPicker = hostPage.locator('.manual-picker-panel');
+      if (await manualPicker.isVisible()) {
+        console.log('   ✓ Manual player picker modal opened');
+        
+        // Select Charlie (the manual player)
+        const charlieBtn = manualPicker.locator('button:has-text("Charlie")');
+        if (await charlieBtn.isVisible()) {
+          await charlieBtn.click();
+          await sleep(300);
+          
+          // Should now show Charlie as the answering player
+          const winner = await hostPage.locator('.clue-buzzer-name').textContent();
+          if (winner === 'Charlie') {
+            console.log('   ✓ Charlie selected as answering player');
+          }
+          
+          // Grading buttons should be visible
+          const gradingBtns = await hostPage.locator('.buzzer-answer-actions').isVisible();
+          if (gradingBtns) {
+            console.log('   ✓ Grading buttons visible for manual player');
+          }
+        }
+      }
+    } else {
+      console.log('   ⚠ "Call on Player" button not visible');
+    }
+
+    // Close clue
+    console.log('\n11. Closing clue...');
     const closeBtn = hostPage.locator('.clue-close');
     await closeBtn.click();
     await sleep(500);
@@ -186,7 +275,7 @@ async function runTest() {
     console.log(`   Buzzer state after close: ${buzzerState}`);
 
     // Take screenshots
-    console.log('\n11. Saving screenshots...');
+    console.log('\n12. Saving screenshots...');
     await hostPage.screenshot({ path: path.join(ARTIFACTS_DIR, 'buzzer-lobby-test-host.png') });
     await phone1Page.screenshot({ path: path.join(ARTIFACTS_DIR, 'buzzer-lobby-test-phone1.png') });
     await phone2Page.screenshot({ path: path.join(ARTIFACTS_DIR, 'buzzer-lobby-test-phone2.png') });
