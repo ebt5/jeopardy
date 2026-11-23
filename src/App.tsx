@@ -8,11 +8,17 @@ import { FinalJeopardyView } from './components/FinalJeopardy';
 import { Login } from './components/Login';
 import { PlayersBar } from './components/PlayersBar';
 import { Setup } from './components/Setup';
+import { BuzzerHost } from './components/BuzzerHost';
 import './App.css';
 
 interface ActiveClue {
   categoryIndex: number;
   clueIndex: number;
+}
+
+interface BuzzerWinner {
+  gamePlayerId: string | null;
+  name: string;
 }
 
 export default function App() {
@@ -25,6 +31,8 @@ export default function App() {
   const [active, setActive] = useState<ActiveClue | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [showFinal, setShowFinal] = useState(false);
+  const [buzzerWinner, setBuzzerWinner] = useState<BuzzerWinner | null>(null);
+  const [showBuzzerPanel, setShowBuzzerPanel] = useState(true);
 
   useEffect(() => {
     saveGameConfig(config);
@@ -100,7 +108,12 @@ export default function App() {
     });
     setActive(null);
     setRevealed(false);
+    setBuzzerWinner(null);
   }, [active]);
+
+  const handleBuzzerResult = useCallback((gamePlayerId: string | null, name: string) => {
+    setBuzzerWinner({ gamePlayerId, name });
+  }, []);
 
   const adjustScore = (playerId: string, delta: number) => {
     setConfig((prev) => ({
@@ -160,6 +173,14 @@ export default function App() {
           <button type="button" className="btn small" onClick={handleLogout}>
             Log out
           </button>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => setShowBuzzerPanel((v) => !v)}
+            title="Toggle buzzer panel"
+          >
+            📱 Buzzer
+          </button>
           <button type="button" className="btn small primary" onClick={startFinalJeopardy}>
             Final Jeopardy
           </button>
@@ -168,8 +189,21 @@ export default function App() {
           </button>
         </div>
       </header>
-      <Board categories={config.categories} onSelectClue={selectClue} />
-      <PlayersBar players={config.players} />
+      <div className="play-main">
+        <div className="play-board-area">
+          <Board categories={config.categories} onSelectClue={selectClue} />
+          <PlayersBar players={config.players} />
+        </div>
+        {showBuzzerPanel && (
+          <aside className="play-buzzer-sidebar">
+            <BuzzerHost
+              players={config.players}
+              isClueOpen={active !== null}
+              onBuzzerResult={handleBuzzerResult}
+            />
+          </aside>
+        )}
+      </div>
       {active && activeClue && (
         <ClueView
           key={`${active.categoryIndex}-${active.clueIndex}`}
@@ -180,6 +214,7 @@ export default function App() {
           onClose={closeClue}
           players={config.players}
           onAdjustScore={adjustScore}
+          buzzerWinner={buzzerWinner}
         />
       )}
       {showFinal && (
