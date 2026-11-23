@@ -7,8 +7,8 @@
       "clues": [
         {
           "value": 200,
-          "answer": "This beagle serves jelly beans and toast for Thanksgiving dinner in this 1973 animated special",
-          "question": "What is A Charlie Brown Thanksgiving? (Snoopy)",
+          "answer": "This beagle serves jelly beans and toast for Thanksgiving dinner in a 1973 animated special",
+          "question": "Who is Snoopy?",
           "played": false,
           "dailyDouble": false
         },
