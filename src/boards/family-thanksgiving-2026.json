@@ -43,40 +43,40 @@
       ]
     },
     {
-      "name": "PIXAR PALS",
+      "name": "THANKS A LOT",
       "clues": [
         {
           "value": 200,
-          "answer": "\"To infinity and beyond!\" is the catchphrase of this space ranger toy",
-          "question": "Who is Buzz Lightyear?",
+          "answer": "This pop star thanked her exes and moved on in her 2018 hit \"thank u, next\"",
+          "question": "Who is Ariana Grande?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 400,
-          "answer": "Carl Fredricksen ties thousands of balloons to his house and floats away in this film",
-          "question": "What is Up?",
+          "answer": "In Moana, Maui sings this 2-word song, the polite reply to \"thank you\"",
+          "question": "What is \"You're Welcome\"?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 600,
-          "answer": "Joy, Sadness, Anger, Fear and this green emotion live inside Riley's head",
-          "question": "What is Disgust?",
+          "answer": "\"Thank You for Being a Friend\" is the theme song of this sitcom about four women sharing a house in Miami",
+          "question": "What is The Golden Girls?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 800,
-          "answer": "This rat dreams of being a chef in Paris in Ratatouille",
-          "question": "Who is Remy?",
+          "answer": "This Swedish supergroup of \"Dancing Queen\" fame also sang \"Thank You for the Music\"",
+          "question": "Who is ABBA?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 1000,
-          "answer": "In Coco, Miguel idolizes this famous singer who turns out to be a villain",
-          "question": "Who is Ernesto de la Cruz?",
+          "answer": "Eminem's 2000 hit \"Stan\" samples the song \"Thank You\" by this one-named British singer",
+          "question": "Who is Dido?",
           "played": false,
           "dailyDouble": false
         }
