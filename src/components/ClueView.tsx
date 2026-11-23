@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Clue, Player } from '../types';
 import { maxDailyDoubleWager } from '../types';
 import { PlayersBar } from './PlayersBar';
+import { playDailyDoubleSound } from '../sound';
 
 type DdStep = 'splash' | 'pick' | 'wager' | 'clue';
 
@@ -35,6 +36,10 @@ export function ClueView({
     ? maxDailyDoubleWager(wagerPlayer.score, clue.value)
     : clue.value;
   const scoreAmount = confirmedWager ?? clue.value;
+
+  useEffect(() => {
+    if (isDd) playDailyDoubleSound();
+  }, [isDd]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
