@@ -9,6 +9,7 @@ import { Login } from './components/Login';
 import { PlayersBar } from './components/PlayersBar';
 import { Setup } from './components/Setup';
 import { BuzzerHost } from './components/BuzzerHost';
+import { useBuzzerHost } from './buzzer/useBuzzerHost';
 import './App.css';
 
 interface ActiveClue {
@@ -19,6 +20,10 @@ interface ActiveClue {
 interface BuzzerWinner {
   gamePlayerId: string | null;
   name: string;
+}
+
+interface BuzzerControls {
+  rearmAfterWrong: () => void;
 }
 
 export default function App() {
@@ -33,6 +38,9 @@ export default function App() {
   const [showFinal, setShowFinal] = useState(false);
   const [buzzerWinner, setBuzzerWinner] = useState<BuzzerWinner | null>(null);
   const [showBuzzerPanel, setShowBuzzerPanel] = useState(true);
+  const [buzzerControls, setBuzzerControls] = useState<BuzzerControls | null>(null);
+
+  const buzzerHost = useBuzzerHost();
 
   useEffect(() => {
     saveGameConfig(config);
@@ -109,11 +117,18 @@ export default function App() {
     setActive(null);
     setRevealed(false);
     setBuzzerWinner(null);
+    setBuzzerControls(null);
   }, [active]);
 
-  const handleBuzzerResult = useCallback((gamePlayerId: string | null, name: string) => {
-    setBuzzerWinner({ gamePlayerId, name });
-  }, []);
+  const handleBuzzerResult = useCallback(
+    (gamePlayerId: string | null, name: string, rearmFn?: () => void) => {
+      setBuzzerWinner({ gamePlayerId, name });
+      if (rearmFn) {
+        setBuzzerControls({ rearmAfterWrong: rearmFn });
+      }
+    },
+    []
+  );
 
   const adjustScore = (playerId: string, delta: number) => {
     setConfig((prev) => ({
@@ -123,6 +138,34 @@ export default function App() {
       ),
     }));
   };
+
+  const getActiveClueValue = useCallback(() => {
+    if (!active) return 0;
+    const clue = config.categories[active.categoryIndex]?.clues[active.clueIndex];
+    return clue?.value ?? 0;
+  }, [active, config.categories]);
+
+  const handleBuzzerCorrect = useCallback(() => {
+    if (!buzzerWinner?.gamePlayerId) {
+      closeClue();
+      return;
+    }
+    const value = getActiveClueValue();
+    adjustScore(buzzerWinner.gamePlayerId, value);
+    closeClue();
+  }, [buzzerWinner, closeClue, getActiveClueValue]);
+
+  const handleBuzzerWrong = useCallback(() => {
+    if (!buzzerWinner) return;
+    const value = getActiveClueValue();
+    if (buzzerWinner.gamePlayerId) {
+      adjustScore(buzzerWinner.gamePlayerId, -value);
+    }
+    setBuzzerWinner(null);
+    if (buzzerControls?.rearmAfterWrong) {
+      buzzerControls.rearmAfterWrong();
+    }
+  }, [buzzerWinner, buzzerControls, getActiveClueValue]);
 
   const startFinalJeopardy = () => {
     const unplayed = config.categories.some((c) =>
@@ -151,6 +194,7 @@ export default function App() {
         onStart={startGame}
         username={session.username}
         onLogout={handleLogout}
+        buzzerHost={buzzerHost}
       />
     );
   }
@@ -199,6 +243,8 @@ export default function App() {
             <BuzzerHost
               players={config.players}
               isClueOpen={active !== null}
+              isDailyDouble={activeClue?.dailyDouble === true}
+              buzzerHost={buzzerHost}
               onBuzzerResult={handleBuzzerResult}
             />
           </aside>
@@ -215,6 +261,8 @@ export default function App() {
           players={config.players}
           onAdjustScore={adjustScore}
           buzzerWinner={buzzerWinner}
+          onBuzzerCorrect={!activeClue.dailyDouble ? handleBuzzerCorrect : undefined}
+          onBuzzerWrong={!activeClue.dailyDouble ? handleBuzzerWrong : undefined}
         />
       )}
       {showFinal && (

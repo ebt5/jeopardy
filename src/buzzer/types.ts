@@ -5,6 +5,7 @@ export interface BuzzerPlayer {
   peerId: string;
   name: string;
   gamePlayerId?: string; // Maps to Player.id from game config
+  deviceId?: string; // Persistent device identifier for reconnection
 }
 
 export interface BuzzResult {
@@ -21,6 +22,12 @@ export interface BuzzerRoundResult {
   lockedOutIds: Set<string>; // Player IDs locked out for this clue
 }
 
+/** Callback signature for correct/wrong answer handling */
+export interface BuzzerAnswerCallbacks {
+  onCorrect: () => void;
+  onWrong: () => void;
+}
+
 /** Messages from host to phone */
 export type HostMessage =
   | { type: 'sync-request'; hostSendTime: number }
@@ -33,7 +40,7 @@ export type HostMessage =
 
 /** Messages from phone to host */
 export type PhoneMessage =
-  | { type: 'join'; name: string; gamePlayerId?: string }
+  | { type: 'join'; name: string; gamePlayerId?: string; deviceId?: string }
   | { type: 'sync-ping'; phoneSendTime: number }
   | { type: 'sync-pong'; hostSendTime: number; phoneReceiveTime: number }
   | { type: 'buzz'; localTimestamp: number; correctedTimestamp: number };

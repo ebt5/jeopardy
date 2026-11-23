@@ -1,16 +1,28 @@
 import { useEffect, useMemo, useRef } from 'react';
 import qrcode from 'qrcode-generator';
-import { useBuzzerHost } from '../buzzer/useBuzzerHost';
+import type { UseBuzzerHostResult } from '../buzzer/useBuzzerHost';
 import type { Player } from '../types';
 import './BuzzerHost.css';
 
 interface BuzzerHostProps {
   players: Player[];
   isClueOpen: boolean;
-  onBuzzerResult?: (winnerId: string | null, winnerName: string) => void;
+  isDailyDouble?: boolean;
+  buzzerHost: UseBuzzerHostResult;
+  onBuzzerResult?: (
+    winnerId: string | null,
+    winnerName: string,
+    rearmFn?: () => void
+  ) => void;
 }
 
-export function BuzzerHost({ players, isClueOpen, onBuzzerResult }: BuzzerHostProps) {
+export function BuzzerHost({
+  players,
+  isClueOpen,
+  isDailyDouble = false,
+  buzzerHost,
+  onBuzzerResult,
+}: BuzzerHostProps) {
   const {
     roomCode,
     state,
@@ -25,13 +37,19 @@ export function BuzzerHost({ players, isClueOpen, onBuzzerResult }: BuzzerHostPr
     reset,
     rearm,
     kickPlayer,
-  } = useBuzzerHost();
+  } = buzzerHost;
 
   const prevIsClueOpenRef = useRef(isClueOpen);
 
-  // Auto-arm when clue opens
+  // Auto-arm when clue opens (but not for Daily Doubles)
   useEffect(() => {
-    if (isClueOpen && !prevIsClueOpenRef.current && roomCode && state === 'waiting') {
+    if (
+      isClueOpen &&
+      !prevIsClueOpenRef.current &&
+      roomCode &&
+      state === 'waiting' &&
+      !isDailyDouble
+    ) {
       arm();
     }
     // Auto-reset when clue closes
@@ -39,17 +57,18 @@ export function BuzzerHost({ players, isClueOpen, onBuzzerResult }: BuzzerHostPr
       reset();
     }
     prevIsClueOpenRef.current = isClueOpen;
-  }, [isClueOpen, roomCode, state, arm, reset]);
+  }, [isClueOpen, roomCode, state, arm, reset, isDailyDouble]);
 
   // Notify parent of buzz result
   useEffect(() => {
     if (lastResult && onBuzzerResult) {
       onBuzzerResult(
         lastResult.winner.gamePlayerId ?? null,
-        lastResult.winner.name
+        lastResult.winner.name,
+        rearm
       );
     }
-  }, [lastResult, onBuzzerResult]);
+  }, [lastResult, onBuzzerResult, rearm]);
 
   // Generate QR code
   const qrDataUrl = useMemo(() => {

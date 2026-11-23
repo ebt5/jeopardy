@@ -57,6 +57,7 @@ export interface UseBuzzerHostResult {
   reset: (lockOutWinner?: boolean) => void;
   rearm: () => void;
   kickPlayer: (peerId: string) => void;
+  linkPlayerToGame: (peerId: string, gamePlayerId: string) => void;
 }
 
 export function useBuzzerHost(): UseBuzzerHostResult {
@@ -142,6 +143,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
             peerId,
             name: msg.name.slice(0, 20).trim() || 'Player',
             gamePlayerId: msg.gamePlayerId,
+            deviceId: msg.deviceId,
           };
           updatePlayerList();
           break;
@@ -418,6 +420,14 @@ export function useBuzzerHost(): UseBuzzerHostResult {
     }
   }, [sendTo, updatePlayerList]);
 
+  const linkPlayerToGame = useCallback((peerId: string, gamePlayerId: string) => {
+    const connState = connectionsRef.current.get(peerId);
+    if (connState?.player) {
+      connState.player.gamePlayerId = gamePlayerId;
+      updatePlayerList();
+    }
+  }, [updatePlayerList]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -439,5 +449,6 @@ export function useBuzzerHost(): UseBuzzerHostResult {
     reset,
     rearm,
     kickPlayer,
+    linkPlayerToGame,
   };
 }
