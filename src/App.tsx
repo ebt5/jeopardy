@@ -130,14 +130,6 @@ export default function App() {
     []
   );
 
-  const handleManualPlayerSelect = useCallback(
-    (playerId: string, playerName: string) => {
-      setBuzzerWinner({ gamePlayerId: playerId, name: playerName });
-      setBuzzerControls({ rearmAfterWrong: () => setBuzzerWinner(null) });
-    },
-    []
-  );
-
   const adjustScore = (playerId: string, delta: number) => {
     setConfig((prev) => ({
       ...prev,
@@ -147,33 +139,17 @@ export default function App() {
     }));
   };
 
-  const getActiveClueValue = useCallback(() => {
-    if (!active) return 0;
-    const clue = config.categories[active.categoryIndex]?.clues[active.clueIndex];
-    return clue?.value ?? 0;
-  }, [active, config.categories]);
-
-  const handleBuzzerCorrect = useCallback(() => {
-    if (!buzzerWinner?.gamePlayerId) {
-      closeClue();
-      return;
-    }
-    const value = getActiveClueValue();
-    adjustScore(buzzerWinner.gamePlayerId, value);
-    closeClue();
-  }, [buzzerWinner, closeClue, getActiveClueValue]);
-
-  const handleBuzzerWrong = useCallback(() => {
-    if (!buzzerWinner) return;
-    const value = getActiveClueValue();
-    if (buzzerWinner.gamePlayerId) {
-      adjustScore(buzzerWinner.gamePlayerId, -value);
-    }
+  const handlePlayerCorrect = useCallback((_playerId: string) => {
     setBuzzerWinner(null);
-    if (buzzerControls?.rearmAfterWrong) {
+    buzzerHost.reset();
+  }, [buzzerHost]);
+
+  const handlePlayerWrong = useCallback((playerId: string) => {
+    if (buzzerWinner?.gamePlayerId === playerId && buzzerControls?.rearmAfterWrong) {
       buzzerControls.rearmAfterWrong();
     }
-  }, [buzzerWinner, buzzerControls, getActiveClueValue]);
+    setBuzzerWinner(null);
+  }, [buzzerWinner, buzzerControls]);
 
   const startFinalJeopardy = () => {
     const unplayed = config.categories.some((c) =>
@@ -269,9 +245,8 @@ export default function App() {
           players={config.players}
           onAdjustScore={adjustScore}
           buzzerWinner={buzzerWinner}
-          onBuzzerCorrect={!activeClue.dailyDouble ? handleBuzzerCorrect : undefined}
-          onBuzzerWrong={!activeClue.dailyDouble ? handleBuzzerWrong : undefined}
-          onManualPlayerSelect={!activeClue.dailyDouble ? handleManualPlayerSelect : undefined}
+          onPlayerCorrect={!activeClue.dailyDouble ? handlePlayerCorrect : undefined}
+          onPlayerWrong={!activeClue.dailyDouble ? handlePlayerWrong : undefined}
         />
       )}
       {showFinal && (

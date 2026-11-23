@@ -10,7 +10,7 @@ async function sleep(ms: number) {
 }
 
 async function runTest() {
-  console.log('Starting buzzer E2E test with lobby + wrong answer features...\n');
+  console.log('Starting buzzer E2E test with per-player grading buttons...\n');
   
   if (!fs.existsSync(ARTIFACTS_DIR)) {
     fs.mkdirSync(ARTIFACTS_DIR, { recursive: true });
@@ -151,17 +151,15 @@ async function runTest() {
       console.log(`   ✓ Winner shown: ${winnerName}`);
     }
 
-    // === Test grading before reveal (new feature) ===
-    console.log('\n9. Testing grading before reveal...');
+    // === Test grading via per-player buttons before reveal ===
+    console.log('\n9. Testing per-player grading buttons before reveal...');
     
-    // The grading buttons should be visible even before reveal
-    const wrongBtn = hostPage.locator('.buzzer-answer-actions button:has-text("Wrong")');
-    const correctBtn = hostPage.locator('.buzzer-answer-actions button:has-text("Correct")');
-    const wrongBtnVisible = await wrongBtn.isVisible();
-    const correctBtnVisible = await correctBtn.isVisible();
+    // The per-player +/− buttons should be visible in the clue overlay
+    const playerControls = hostPage.locator('.clue-overlay .player-controls');
+    const hasPlayerControls = await playerControls.first().isVisible();
     
-    if (wrongBtnVisible && correctBtnVisible) {
-      console.log('   ✓ Correct and Wrong buttons visible BEFORE reveal');
+    if (hasPlayerControls) {
+      console.log('   ✓ Per-player score buttons visible in clue overlay');
       
       // Check that the clue is NOT revealed yet
       const clueLabel = await hostPage.textContent('.clue-label');
@@ -169,43 +167,48 @@ async function runTest() {
         console.log('   ✓ Clue is still showing ANSWER (not revealed)');
       }
       
-      // Test the Wrong button - should deduct points and re-arm without revealing
-      await wrongBtn.click();
-      await sleep(500);
-      
-      // Check that buzzer re-arms for remaining players
-      const phone2StatusAfterWrong = await phone2Page.textContent('.buzzer-status-text');
-      console.log(`   Phone 2 status after wrong: ${phone2StatusAfterWrong}`);
-      
-      // Phone 1 should be locked out, phone 2 can still buzz
-      const phone1StatusAfterWrong = await phone1Page.textContent('.buzzer-status-text');
-      console.log(`   Phone 1 status after wrong: ${phone1StatusAfterWrong}`);
-      
-      // Check clue is still showing ANSWER (not revealed after Wrong)
-      const clueLabelAfterWrong = await hostPage.textContent('.clue-label');
-      if (clueLabelAfterWrong === 'ANSWER') {
-        console.log('   ✓ Clue still shows ANSWER after Wrong (answer not auto-revealed)');
-      } else {
-        console.log(`   ⚠ Clue label changed to: ${clueLabelAfterWrong}`);
-      }
-      
-      // Phone 2 buzzes now
-      if (phone2StatusAfterWrong?.includes('BUZZ NOW')) {
-        console.log('   ✓ Buzzer re-armed for Phone 2');
-        await phone2Page.locator('.buzzer-button').click();
-        await sleep(800);
-        
-        const newWinner = await hostPage.locator('.clue-buzzer-winner');
-        if (await newWinner.isVisible()) {
-          const newWinnerName = await hostPage.textContent('.clue-buzzer-name');
-          console.log(`   ✓ New winner after re-arm: ${newWinnerName}`);
+      // Find Alice's player box (the buzzer winner) and click her − button
+      // The highlighted player box should be the winner
+      const highlightedPlayer = hostPage.locator('.clue-overlay .player-box.highlighted');
+      if (await highlightedPlayer.isVisible()) {
+        const winnerMinusBtn = highlightedPlayer.locator('.score-btn.minus');
+        if (await winnerMinusBtn.isVisible()) {
+          console.log('   ✓ Winner has − button visible');
+          await winnerMinusBtn.click();
+          await sleep(500);
+          
+          // Check that buzzer re-arms for remaining players
+          const phone2StatusAfterWrong = await phone2Page.textContent('.buzzer-status-text');
+          console.log(`   Phone 2 status after wrong: ${phone2StatusAfterWrong}`);
+          
+          // Phone 1 should be locked out, phone 2 can still buzz
+          const phone1StatusAfterWrong = await phone1Page.textContent('.buzzer-status-text');
+          console.log(`   Phone 1 status after wrong: ${phone1StatusAfterWrong}`);
+          
+          // Check clue is still showing ANSWER (not revealed after Wrong)
+          const clueLabelAfterWrong = await hostPage.textContent('.clue-label');
+          if (clueLabelAfterWrong === 'ANSWER') {
+            console.log('   ✓ Clue still shows ANSWER after − click (answer not auto-revealed)');
+          } else {
+            console.log(`   ⚠ Clue label changed to: ${clueLabelAfterWrong}`);
+          }
+          
+          // Phone 2 buzzes now
+          if (phone2StatusAfterWrong?.includes('BUZZ NOW')) {
+            console.log('   ✓ Buzzer re-armed for Phone 2');
+            await phone2Page.locator('.buzzer-button').click();
+            await sleep(800);
+            
+            const newWinner = await hostPage.locator('.clue-buzzer-winner');
+            if (await newWinner.isVisible()) {
+              const newWinnerName = await hostPage.textContent('.clue-buzzer-name');
+              console.log(`   ✓ New winner after re-arm: ${newWinnerName}`);
+            }
+          }
         }
       }
     } else {
-      console.log('   ⚠ Grading buttons not visible before reveal');
-      // Fall back to old flow
-      await hostPage.click('.clue-body');
-      await sleep(300);
+      console.log('   ⚠ Per-player buttons not visible');
     }
 
     // Test peek feature
@@ -217,55 +220,15 @@ async function runTest() {
       console.log('   ⚠ Peek button not visible (may be revealed)');
     }
 
-    // Close current clue
-    console.log('\n10. Closing current clue...');
-    await hostPage.locator('.clue-close').click();
-    await sleep(500);
-
-    // Test manual player selection (Call on Player)
-    console.log('\n10b. Testing manual player selection...');
-    const secondClueButton = await hostPage.locator('.board-cell:not(.played)').first();
-    await secondClueButton.click();
-    await hostPage.waitForSelector('.clue-overlay');
-    await sleep(500);
-
-    // Look for "Call on Player" button (should appear when there are manual players)
-    const callOnPlayerBtn = hostPage.locator('button:has-text("Call on Player")');
-    if (await callOnPlayerBtn.isVisible()) {
-      console.log('   ✓ "Call on Player" button is visible');
-      await callOnPlayerBtn.click();
-      await sleep(300);
-
-      // Should show the manual picker modal
-      const manualPicker = hostPage.locator('.manual-picker-panel');
-      if (await manualPicker.isVisible()) {
-        console.log('   ✓ Manual player picker modal opened');
-        
-        // Select Charlie (the manual player)
-        const charlieBtn = manualPicker.locator('button:has-text("Charlie")');
-        if (await charlieBtn.isVisible()) {
-          await charlieBtn.click();
-          await sleep(300);
-          
-          // Should now show Charlie as the answering player
-          const winner = await hostPage.locator('.clue-buzzer-name').textContent();
-          if (winner === 'Charlie') {
-            console.log('   ✓ Charlie selected as answering player');
-          }
-          
-          // Grading buttons should be visible
-          const gradingBtns = await hostPage.locator('.buzzer-answer-actions').isVisible();
-          if (gradingBtns) {
-            console.log('   ✓ Grading buttons visible for manual player');
-          }
-        }
-      }
-    } else {
-      console.log('   ⚠ "Call on Player" button not visible');
+    // Test Reveal Answer button
+    console.log('\n9c. Testing Reveal Answer button...');
+    const revealBtn = hostPage.locator('button:has-text("Reveal Answer")');
+    if (await revealBtn.isVisible()) {
+      console.log('   ✓ Reveal Answer button is visible');
     }
 
     // Close clue
-    console.log('\n11. Closing clue...');
+    console.log('\n10. Closing clue...');
     const closeBtn = hostPage.locator('.clue-close');
     await closeBtn.click();
     await sleep(500);
