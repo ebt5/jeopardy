@@ -130,6 +130,14 @@ export default function App() {
     []
   );
 
+  const handleManualPlayerSelect = useCallback(
+    (playerId: string, playerName: string) => {
+      setBuzzerWinner({ gamePlayerId: playerId, name: playerName });
+      setBuzzerControls({ rearmAfterWrong: () => setBuzzerWinner(null) });
+    },
+    []
+  );
+
   const adjustScore = (playerId: string, delta: number) => {
     setConfig((prev) => ({
       ...prev,
@@ -263,6 +271,7 @@ export default function App() {
           buzzerWinner={buzzerWinner}
           onBuzzerCorrect={!activeClue.dailyDouble ? handleBuzzerCorrect : undefined}
           onBuzzerWrong={!activeClue.dailyDouble ? handleBuzzerWrong : undefined}
+          onManualPlayerSelect={!activeClue.dailyDouble ? handleManualPlayerSelect : undefined}
         />
       )}
       {showFinal && (
