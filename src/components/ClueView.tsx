@@ -20,9 +20,8 @@ interface ClueViewProps {
   players: Player[];
   onAdjustScore: (playerId: string, delta: number) => void;
   buzzerWinner?: BuzzerWinner | null;
-  onBuzzerCorrect?: () => void;
-  onBuzzerWrong?: () => void;
-  onManualPlayerSelect?: (playerId: string, playerName: string) => void;
+  onPlayerCorrect?: (playerId: string) => void;
+  onPlayerWrong?: (playerId: string) => void;
 }
 
 export function ClueView({
@@ -34,16 +33,14 @@ export function ClueView({
   players,
   onAdjustScore,
   buzzerWinner,
-  onBuzzerCorrect,
-  onBuzzerWrong,
-  onManualPlayerSelect,
+  onPlayerCorrect,
+  onPlayerWrong,
 }: ClueViewProps) {
   const isDd = Boolean(clue.dailyDouble);
   const [ddStep, setDdStep] = useState<DdStep>(isDd ? 'splash' : 'clue');
   const [wagerPlayerId, setWagerPlayerId] = useState<string | null>(null);
   const [wagerInput, setWagerInput] = useState('5');
   const [confirmedWager, setConfirmedWager] = useState<number | null>(null);
-  const [showManualPicker, setShowManualPicker] = useState(false);
   const [isPeekingAnswer, setIsPeekingAnswer] = useState(false);
   const [ddGraded, setDdGraded] = useState(false);
 
@@ -184,29 +181,23 @@ export function ClueView({
 
   const highlightedPlayerId = buzzerWinner?.gamePlayerId ?? wagerPlayerId ?? null;
 
-  const hasGradingCallbacks = onBuzzerCorrect && onBuzzerWrong;
-  const canGrade = buzzerWinner && hasGradingCallbacks;
-  const hasManualPlayers = players.some((p) => p.isManual);
-
   const isDdCluePhase = isDd && ddStep === 'clue' && wagerPlayerId && confirmedWager !== null;
 
-  const handleDdCorrect = () => {
-    if (!wagerPlayerId || confirmedWager === null || ddGraded) return;
-    onAdjustScore(wagerPlayerId, confirmedWager);
-    setDdGraded(true);
-    onReveal();
-  };
-
-  const handleDdWrong = () => {
-    if (!wagerPlayerId || confirmedWager === null || ddGraded) return;
-    onAdjustScore(wagerPlayerId, -confirmedWager);
-    setDdGraded(true);
-  };
-
-  const handleManualSelect = (player: Player) => {
-    setShowManualPicker(false);
-    if (onManualPlayerSelect) {
-      onManualPlayerSelect(player.id, player.name);
+  const handleScoreAdjust = (playerId: string, delta: number) => {
+    if (isDdCluePhase) {
+      if (playerId === wagerPlayerId && !ddGraded) {
+        onAdjustScore(playerId, delta > 0 ? confirmedWager! : -confirmedWager!);
+        setDdGraded(true);
+      } else if (playerId !== wagerPlayerId) {
+        onAdjustScore(playerId, delta);
+      }
+    } else {
+      onAdjustScore(playerId, delta);
+      if (delta > 0 && onPlayerCorrect) {
+        onPlayerCorrect(playerId);
+      } else if (delta < 0 && onPlayerWrong) {
+        onPlayerWrong(playerId);
+      }
     }
   };
 
@@ -240,14 +231,15 @@ export function ClueView({
       <div className="clue-body" onClick={() => !revealed && onReveal()}>
         <p className="clue-label">{revealed ? 'QUESTION' : 'ANSWER'}</p>
         <p className="clue-text">{revealed ? clue.question : clue.answer}</p>
-        {!revealed && !canGrade && !isDdCluePhase && (
-          <p className="clue-hint">Click or press Space to reveal the question</p>
-        )}
-        {!revealed && canGrade && (
-          <p className="clue-hint">Grade the answer below, or click/press Space to reveal</p>
+        {!revealed && !isDdCluePhase && (
+          <p className="clue-hint">
+            Use player +/− buttons to grade, or click/Space to reveal
+          </p>
         )}
         {!revealed && isDdCluePhase && !ddGraded && (
-          <p className="clue-hint">Grade {wagerPlayer?.name}'s answer below</p>
+          <p className="clue-hint">
+            Use {wagerPlayer?.name}'s +/− buttons to grade (wager: ${confirmedWager})
+          </p>
         )}
         {!revealed && isDdCluePhase && ddGraded && (
           <p className="clue-hint">Click or press Space to reveal the question</p>
@@ -278,71 +270,10 @@ export function ClueView({
       )}
 
       <div className="clue-actions">
-        {canGrade ? (
-          <div className="buzzer-answer-actions">
-            <button
-              type="button"
-              className="btn success large"
-              onClick={onBuzzerCorrect}
-            >
-              ✓ Correct (+${scoreAmount})
-            </button>
-            <button
-              type="button"
-              className="btn danger large"
-              onClick={onBuzzerWrong}
-            >
-              ✗ Wrong (−${scoreAmount})
-            </button>
-            {!revealed && (
-              <button type="button" className="btn" onClick={onReveal}>
-                Reveal Answer
-              </button>
-            )}
-            <button type="button" className="btn" onClick={onClose}>
-              {revealed ? 'Back to Board' : 'Skip / No Points'}
-            </button>
-          </div>
-        ) : isDdCluePhase && !ddGraded ? (
-          <div className="buzzer-answer-actions">
-            <button
-              type="button"
-              className="btn success large"
-              onClick={handleDdCorrect}
-            >
-              ✓ Correct (+${confirmedWager})
-            </button>
-            <button
-              type="button"
-              className="btn danger large"
-              onClick={handleDdWrong}
-            >
-              ✗ Wrong (−${confirmedWager})
-            </button>
-            {!revealed && (
-              <button type="button" className="btn" onClick={onReveal}>
-                Reveal Answer
-              </button>
-            )}
-            <button type="button" className="btn" onClick={onClose}>
-              Skip / No Points
-            </button>
-          </div>
-        ) : !revealed ? (
-          <div className="buzzer-answer-actions">
-            <button type="button" className="btn primary" onClick={onReveal}>
-              Reveal Question
-            </button>
-            {hasManualPlayers && hasGradingCallbacks && !buzzerWinner && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setShowManualPicker(true)}
-              >
-                🎤 Call on Player
-              </button>
-            )}
-          </div>
+        {!revealed ? (
+          <button type="button" className="btn primary" onClick={onReveal}>
+            Reveal Answer
+          </button>
         ) : (
           <button type="button" className="btn" onClick={onClose}>
             Back to Board
@@ -350,43 +281,10 @@ export function ClueView({
         )}
       </div>
 
-      {/* Manual player picker modal */}
-      {showManualPicker && (
-        <div className="manual-picker-overlay" onClick={() => setShowManualPicker(false)}>
-          <div className="manual-picker-panel" onClick={(e) => e.stopPropagation()}>
-            <h3 className="manual-picker-title">Who is answering?</h3>
-            <p className="manual-picker-hint">Select the player who buzzed in verbally</p>
-            <div className="manual-picker-players">
-              {players.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="btn large manual-pick-btn"
-                  onClick={() => handleManualSelect(p)}
-                >
-                  {p.name}
-                  {p.isManual && <span className="manual-badge">🎤</span>}
-                  <span className="manual-pick-score">
-                    {p.score < 0 ? `-$${Math.abs(p.score)}` : `$${p.score}`}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setShowManualPicker(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
       <PlayersBar
         players={players}
         clueValue={scoreAmount}
-        onAdjust={onAdjustScore}
+        onAdjust={handleScoreAdjust}
         showControls
         highlightedPlayerId={highlightedPlayerId}
       />
