@@ -105,6 +105,13 @@
   border-color: transparent;
 }
 
+.buzzer-hint {
+  margin: 0;
+  color: #a8b4d8;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .buzzer-join-btn {
   margin-top: 0.5rem;
   padding: 1rem !important;

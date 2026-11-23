@@ -20,6 +20,8 @@ interface ClueViewProps {
   players: Player[];
   onAdjustScore: (playerId: string, delta: number) => void;
   buzzerWinner?: BuzzerWinner | null;
+  onBuzzerCorrect?: () => void;
+  onBuzzerWrong?: () => void;
 }
 
 export function ClueView({
@@ -31,6 +33,8 @@ export function ClueView({
   players,
   onAdjustScore,
   buzzerWinner,
+  onBuzzerCorrect,
+  onBuzzerWrong,
 }: ClueViewProps) {
   const isDd = Boolean(clue.dailyDouble);
   const [ddStep, setDdStep] = useState<DdStep>(isDd ? 'splash' : 'clue');
@@ -207,6 +211,26 @@ export function ClueView({
           <button type="button" className="btn primary" onClick={onReveal}>
             Reveal Question
           </button>
+        ) : buzzerWinner && onBuzzerCorrect && onBuzzerWrong ? (
+          <div className="buzzer-answer-actions">
+            <button
+              type="button"
+              className="btn success large"
+              onClick={onBuzzerCorrect}
+            >
+              ✓ Correct (+${scoreAmount})
+            </button>
+            <button
+              type="button"
+              className="btn danger large"
+              onClick={onBuzzerWrong}
+            >
+              ✗ Wrong (−${scoreAmount})
+            </button>
+            <button type="button" className="btn" onClick={onClose}>
+              Reveal / No Points
+            </button>
+          </div>
         ) : (
           <button type="button" className="btn" onClick={onClose}>
             Back to Board

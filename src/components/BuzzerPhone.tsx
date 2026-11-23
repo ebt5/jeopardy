@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useBuzzerPhone } from '../buzzer/useBuzzerPhone';
-import type { Player } from '../types';
 import './BuzzerPhone.css';
 
 interface BuzzerPhoneProps {
   roomCode: string;
-  gamePlayers?: Player[];
 }
 
-export function BuzzerPhone({ roomCode, gamePlayers = [] }: BuzzerPhoneProps) {
+export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
   const {
     status,
     buzzStatus,
@@ -22,7 +20,6 @@ export function BuzzerPhone({ roomCode, gamePlayers = [] }: BuzzerPhoneProps) {
   } = useBuzzerPhone();
 
   const [name, setName] = useState('');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>();
   const [hasJoined, setHasJoined] = useState(false);
 
   useEffect(() => {
@@ -33,9 +30,7 @@ export function BuzzerPhone({ roomCode, gamePlayers = [] }: BuzzerPhoneProps) {
 
   const handleJoin = () => {
     if (!name.trim()) return;
-    
-    const gamePlayer = gamePlayers.find((p) => p.id === selectedPlayerId);
-    connect(roomCode, name.trim(), gamePlayer?.id);
+    connect(roomCode, name.trim());
     setHasJoined(true);
   };
 
@@ -72,22 +67,9 @@ export function BuzzerPhone({ roomCode, gamePlayers = [] }: BuzzerPhoneProps) {
               />
             </label>
             
-            {gamePlayers.length > 0 && (
-              <label className="buzzer-field">
-                Link to Game Player (optional)
-                <select
-                  value={selectedPlayerId || ''}
-                  onChange={(e) => setSelectedPlayerId(e.target.value || undefined)}
-                >
-                  <option value="">— Select player —</option>
-                  {gamePlayers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            <p className="buzzer-hint">
+              Your name will be linked to your score automatically
+            </p>
             
             <button
               type="button"

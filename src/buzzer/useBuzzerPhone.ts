@@ -16,6 +16,16 @@ function makePeerId(code: string): string {
   return `jeopardy-buzz-${code}`;
 }
 
+function getOrCreateDeviceId(): string {
+  const key = 'jeopardy-buzzer-device-id';
+  let deviceId = localStorage.getItem(key);
+  if (!deviceId) {
+    deviceId = `device-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(key, deviceId);
+  }
+  return deviceId;
+}
+
 export type PhoneStatus = 'disconnected' | 'connecting' | 'joined' | 'syncing';
 export type BuzzStatus = 'waiting' | 'armed' | 'buzzed' | 'winner' | 'runner-up' | 'locked-out';
 
@@ -203,8 +213,14 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
         statusRef.current = 'syncing';
         setStatus('syncing');
         
-        // Send join message
-        sendMessage({ type: 'join', name: nameRef.current, gamePlayerId: gamePlayerIdRef.current });
+        // Send join message with device ID for reconnection support
+        const deviceId = getOrCreateDeviceId();
+        sendMessage({
+          type: 'join',
+          name: nameRef.current,
+          gamePlayerId: gamePlayerIdRef.current,
+          deviceId,
+        });
         
         // Start initial sync
         for (let i = 0; i < SYNC_SAMPLE_COUNT; i++) {

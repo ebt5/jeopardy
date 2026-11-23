@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { Category, GameConfig, Player, SavedBoard } from '../types';
+import type { Category, GameConfig, SavedBoard } from '../types';
 import { CLUE_VALUES, DEFAULT_FINAL_JEOPARDY } from '../types';
 import { createBlankGame, createDemoGame, createEmptyClues } from '../demo';
 import { generateGame } from '../ai';
@@ -11,6 +11,8 @@ import {
   saveApiKey,
   upsertSavedBoard,
 } from '../storage';
+import { PlayerLobby } from './PlayerLobby';
+import type { UseBuzzerHostResult } from '../buzzer/useBuzzerHost';
 
 interface SetupProps {
   config: GameConfig;
@@ -18,9 +20,10 @@ interface SetupProps {
   onStart: () => void;
   username: string;
   onLogout: () => void;
+  buzzerHost: UseBuzzerHostResult;
 }
 
-export function Setup({ config, onChange, onStart, username, onLogout }: SetupProps) {
+export function Setup({ config, onChange, onStart, username, onLogout, buzzerHost }: SetupProps) {
   const [apiKey, setApiKey] = useState(loadApiKey);
   const [prompt, setPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
@@ -75,30 +78,6 @@ export function Setup({ config, onChange, onStart, username, onLogout }: SetupPr
       ...config,
       finalJeopardy: { ...config.finalJeopardy, [field]: value },
       boardName: undefined,
-    });
-  };
-
-  const updatePlayerName = (id: string, name: string) => {
-    const players = config.players.map((p) =>
-      p.id === id ? { ...p, name } : p,
-    );
-    onChange({ ...config, players });
-  };
-
-  const addPlayer = () => {
-    const n = config.players.length + 1;
-    const players: Player[] = [
-      ...config.players,
-      { id: `p${Date.now()}`, name: `Player ${n}`, score: 0 },
-    ];
-    onChange({ ...config, players });
-  };
-
-  const removePlayer = (id: string) => {
-    if (config.players.length <= 1) return;
-    onChange({
-      ...config,
-      players: config.players.filter((p) => p.id !== id),
     });
   };
 
@@ -263,30 +242,14 @@ export function Setup({ config, onChange, onStart, username, onLogout }: SetupPr
       </header>
 
       <section className="setup-section">
-        <h2>Players</h2>
-        <div className="setup-players">
-          {config.players.map((p) => (
-            <div key={p.id} className="setup-player-row">
-              <input
-                type="text"
-                value={p.name}
-                onChange={(e) => updatePlayerName(p.id, e.target.value)}
-                aria-label="Player name"
-              />
-              <button
-                type="button"
-                className="btn danger small"
-                onClick={() => removePlayer(p.id)}
-                disabled={config.players.length <= 1}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button type="button" className="btn small" onClick={addPlayer}>
-            + Add player
-          </button>
-        </div>
+        <PlayerLobby
+          players={config.players}
+          onPlayersChange={(newPlayers) =>
+            onChange({ ...config, players: newPlayers })
+          }
+          onStartGame={onStart}
+          buzzerHost={buzzerHost}
+        />
       </section>
 
       <section className="setup-section">
@@ -517,9 +480,9 @@ export function Setup({ config, onChange, onStart, username, onLogout }: SetupPr
       </section>
 
       <footer className="setup-footer">
-        <button type="button" className="btn primary large" onClick={onStart}>
-          Start Game
-        </button>
+        <p className="setup-footer-hint">
+          Configure the board above, then use the Player Lobby to add players and start the game
+        </p>
       </footer>
     </div>
   );

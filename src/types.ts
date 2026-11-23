@@ -15,6 +15,8 @@ export interface Player {
   id: string;
   name: string;
   score: number;
+  buzzerPeerId?: string; // Associated phone buzzer peer ID
+  isManual?: boolean; // True if added manually (no phone required)
 }
 
 export interface FinalJeopardy {
