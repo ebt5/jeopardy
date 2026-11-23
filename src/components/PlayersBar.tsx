@@ -5,6 +5,7 @@ interface PlayersBarProps {
   clueValue?: number | null;
   onAdjust?: (playerId: string, delta: number) => void;
   showControls?: boolean;
+  highlightedPlayerId?: string | null;
 }
 
 export function PlayersBar({
@@ -12,12 +13,16 @@ export function PlayersBar({
   clueValue,
   onAdjust,
   showControls = false,
+  highlightedPlayerId,
 }: PlayersBarProps) {
   const value = clueValue ?? 0;
   return (
     <div className="players-bar">
       {players.map((p) => (
-        <div key={p.id} className="player-box">
+        <div
+          key={p.id}
+          className={`player-box${highlightedPlayerId === p.id ? ' highlighted' : ''}`}
+        >
           <div className="player-name">{p.name}</div>
           <div className={`player-score${p.score < 0 ? ' negative' : ''}`}>
             {p.score < 0 ? `-$${Math.abs(p.score)}` : `$${p.score}`}

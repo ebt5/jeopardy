@@ -6,6 +6,11 @@ import { playDailyDoubleSound } from '../sound';
 
 type DdStep = 'splash' | 'pick' | 'wager' | 'clue';
 
+interface BuzzerWinner {
+  gamePlayerId: string | null;
+  name: string;
+}
+
 interface ClueViewProps {
   categoryName: string;
   clue: Clue;
@@ -14,6 +19,7 @@ interface ClueViewProps {
   onClose: () => void;
   players: Player[];
   onAdjustScore: (playerId: string, delta: number) => void;
+  buzzerWinner?: BuzzerWinner | null;
 }
 
 export function ClueView({
@@ -24,6 +30,7 @@ export function ClueView({
   onClose,
   players,
   onAdjustScore,
+  buzzerWinner,
 }: ClueViewProps) {
   const isDd = Boolean(clue.dailyDouble);
   const [ddStep, setDdStep] = useState<DdStep>(isDd ? 'splash' : 'clue');
@@ -166,6 +173,8 @@ export function ClueView({
     );
   }
 
+  const highlightedPlayerId = buzzerWinner?.gamePlayerId ?? null;
+
   return (
     <div className="clue-overlay" role="dialog" aria-modal="true">
       <button type="button" className="clue-close" onClick={onClose} aria-label="Close clue">
@@ -180,6 +189,12 @@ export function ClueView({
           <span>${isDd && confirmedWager != null ? confirmedWager : clue.value}</span>
         </span>
       </div>
+      {buzzerWinner && (
+        <div className="clue-buzzer-winner">
+          <span className="clue-buzzer-crown">👑</span>
+          <span className="clue-buzzer-name">{buzzerWinner.name}</span>
+        </div>
+      )}
       <div className="clue-body" onClick={() => !revealed && onReveal()}>
         <p className="clue-label">{revealed ? 'QUESTION' : 'ANSWER'}</p>
         <p className="clue-text">{revealed ? clue.question : clue.answer}</p>
@@ -203,6 +218,7 @@ export function ClueView({
         clueValue={scoreAmount}
         onAdjust={onAdjustScore}
         showControls
+        highlightedPlayerId={highlightedPlayerId}
       />
     </div>
   );
