@@ -5,6 +5,7 @@ import type {
   BuzzerPlayer,
   BuzzerRoundResult,
   BuzzerState,
+  FinalJeopardyPhoneState,
   HostMessage,
   PhoneMessage,
 } from './types';
@@ -38,9 +39,13 @@ export interface UseBuzzerPhoneResult {
   myRank: number | null;
   error: string | null;
   syncProgress: number; // 0-1
+  finalJeopardy: FinalJeopardyPhoneState | null;
+  fjError: string | null;
   connect: (roomCode: string, name: string, gamePlayerId?: string) => void;
   disconnect: () => void;
   buzz: () => void;
+  submitFinalWager: (wager: number) => void;
+  submitFinalResponse: (response: string) => void;
 }
 
 export function useBuzzerPhone(): UseBuzzerPhoneResult {
@@ -52,6 +57,8 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
   const [myRank, setMyRank] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState(0);
+  const [finalJeopardy, setFinalJeopardy] = useState<FinalJeopardyPhoneState | null>(null);
+  const [fjError, setFjError] = useState<string | null>(null);
 
   const peerRef = useRef<Peer | null>(null);
   const connRef = useRef<DataConnection | null>(null);
@@ -182,6 +189,22 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
         }
         statusRef.current = 'disconnected';
         setStatus('disconnected');
+        setFinalJeopardy(null);
+        setFjError(null);
+        break;
+      }
+
+      case 'fj-state': {
+        setFinalJeopardy(msg.state);
+        setFjError(null);
+        if (msg.state && msg.state.phase === 'clue' && !msg.state.responseLocked) {
+          vibrate(40);
+        }
+        break;
+      }
+
+      case 'fj-error': {
+        setFjError(msg.message);
         break;
       }
     }
@@ -234,6 +257,8 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
         statusRef.current = 'disconnected';
         setStatus('disconnected');
         setError('Connection closed');
+        setFinalJeopardy(null);
+        setFjError(null);
         connRef.current = null;
       });
 
@@ -242,6 +267,8 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
         setError(`Connection error: ${err.message || err.type}`);
         statusRef.current = 'disconnected';
         setStatus('disconnected');
+        setFinalJeopardy(null);
+        setFjError(null);
       });
     });
 
@@ -276,6 +303,8 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
     setLastResult(null);
     setMyRank(null);
     setSyncProgress(0);
+    setFinalJeopardy(null);
+    setFjError(null);
     hasBuzzedRef.current = false;
   }, []);
 
@@ -296,6 +325,18 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
     vibrate(50);
   }, [state, sendMessage]);
 
+  const submitFinalWager = useCallback((wager: number) => {
+    setFjError(null);
+    sendMessage({ type: 'fj-wager', wager });
+    vibrate(30);
+  }, [sendMessage]);
+
+  const submitFinalResponse = useCallback((response: string) => {
+    setFjError(null);
+    sendMessage({ type: 'fj-response', response });
+    vibrate(30);
+  }, [sendMessage]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -312,8 +353,12 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
     myRank,
     error,
     syncProgress,
+    finalJeopardy,
+    fjError,
     connect,
     disconnect,
     buzz,
+    submitFinalWager,
+    submitFinalResponse,
   };
 }
