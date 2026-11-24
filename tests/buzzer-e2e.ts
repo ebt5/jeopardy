@@ -237,6 +237,89 @@ async function runTest() {
     const buzzerState = await hostPage.textContent('.buzzer-state-badge');
     console.log(`   Buzzer state after close: ${buzzerState}`);
 
+    // === Test sidebar features ===
+    console.log('\n11. Testing gameplay sidebar features...');
+    
+    // Check that QR code and join info are visible in the sidebar during gameplay
+    const sidebarQr = hostPage.locator('.play-buzzer-sidebar .buzzer-host-qr');
+    if (await sidebarQr.isVisible()) {
+      console.log('   ✓ QR code visible in gameplay sidebar');
+    } else {
+      console.log('   ⚠ QR code not visible in gameplay sidebar');
+    }
+    
+    const sidebarRoomCode = hostPage.locator('.play-buzzer-sidebar .buzzer-host-code-value');
+    if (await sidebarRoomCode.isVisible()) {
+      const code = await sidebarRoomCode.textContent();
+      console.log(`   ✓ Room code visible in sidebar: ${code}`);
+    }
+    
+    // Check player connection status in sidebar
+    const playersList = hostPage.locator('.play-buzzer-sidebar .buzzer-host-players-list');
+    if (await playersList.isVisible()) {
+      // Check for connected indicators
+      const connectedPlayers = await hostPage.locator('.play-buzzer-sidebar .buzzer-host-player.connected').count();
+      console.log(`   ✓ Connected players shown in sidebar: ${connectedPlayers}`);
+    }
+    
+    // Test collapse feature
+    const collapseBtn = hostPage.locator('.play-buzzer-sidebar .buzzer-host-header-actions button:has-text("▲")');
+    if (await collapseBtn.isVisible()) {
+      console.log('   ✓ Collapse button visible');
+      await collapseBtn.click();
+      await sleep(200);
+      
+      const isCollapsed = await hostPage.locator('.play-buzzer-sidebar .buzzer-host-panel.collapsed').isVisible();
+      if (isCollapsed) {
+        console.log('   ✓ Sidebar collapsed successfully');
+        
+        // Expand it back
+        const expandBtn = hostPage.locator('.play-buzzer-sidebar .buzzer-host-header-actions button:has-text("▼")');
+        await expandBtn.click();
+        await sleep(200);
+        console.log('   ✓ Sidebar expanded back');
+      }
+    }
+
+    // === Test bug fix: rearm works for any player ===
+    console.log('\n11b. Testing bug fix: rearm works regardless of player ID matching...');
+    
+    // Open another clue
+    const secondClue = await hostPage.locator('.board-cell:not(.played)').first();
+    await secondClue.click();
+    await hostPage.waitForSelector('.clue-overlay');
+    await sleep(500);
+    
+    // Phone 2 buzzes first this time
+    await phone2Page.locator('.buzzer-button').click();
+    await sleep(800);
+    
+    // Check Bob is the winner
+    const winner2 = await hostPage.locator('.clue-buzzer-name').textContent();
+    console.log(`   Winner: ${winner2}`);
+    
+    // Click − on Bob's player row (should rearm)
+    const bobPlayerBox = hostPage.locator('.clue-overlay .player-box').filter({ hasText: 'Bob' });
+    const bobMinusBtn = bobPlayerBox.locator('.score-btn.minus');
+    if (await bobMinusBtn.isVisible()) {
+      await bobMinusBtn.click();
+      await sleep(500);
+      
+      // Check if buzzer was rearmed (Phone 1 should now be able to buzz)
+      const phone1StatusRearmed = await phone1Page.textContent('.buzzer-status-text');
+      console.log(`   Phone 1 status after Bob's − click: ${phone1StatusRearmed}`);
+      
+      if (phone1StatusRearmed?.includes('BUZZ NOW')) {
+        console.log('   ✓ BUG FIX VERIFIED: Buzzer rearmed successfully after clicking any player\'s − button');
+      } else {
+        console.log('   ⚠ Bug may still exist: buzzer did not rearm');
+      }
+    }
+    
+    // Close clue
+    await hostPage.locator('.clue-close').click();
+    await sleep(300);
+
     // Take screenshots
     console.log('\n12. Saving screenshots...');
     await hostPage.screenshot({ path: path.join(ARTIFACTS_DIR, 'buzzer-lobby-test-host.png') });
