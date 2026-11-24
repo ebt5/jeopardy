@@ -3,7 +3,13 @@ import { maxFinalJeopardyWager } from '../types';
 import type { FinalJeopardyPhase, FinalJeopardyPhoneState } from './types';
 
 export const MAX_FJ_RESPONSE_LENGTH = 200;
-export const DEFAULT_FJ_TIMER_SECONDS = 30;
+export const DEFAULT_FJ_TIMER_SECONDS = 60;
+
+export interface FinalJeopardyTimerSnapshot {
+  secondsLeft: number;
+  durationSeconds: number;
+  running: boolean;
+}
 
 export interface FinalJeopardyPlayerEntry {
   playerId: string;
@@ -24,6 +30,10 @@ export interface FinalJeopardySession {
   clue: string;
   correctResponse: string;
   correctResponseShown: boolean;
+  /** True once the clue countdown reaches 0 (until reset) */
+  submissionsLockedByTimer: boolean;
+  /** Host override allowing phones to submit responses even after time is up */
+  allowLateResponses: boolean;
   entries: Record<string, FinalJeopardyPlayerEntry>;
   revealOrder: string[];
   revealIndex: number;
@@ -37,6 +47,21 @@ export interface FinalJeopardyActionResult {
 export function formatScore(amount: number): string {
   const abs = Math.abs(amount).toLocaleString('en-US');
   return amount < 0 ? `-$${abs}` : `$${abs}`;
+}
+
+export function formatTimer(totalSeconds: number): string {
+  const clamped = Math.max(0, Math.floor(totalSeconds));
+  const mins = Math.floor(clamped / 60);
+  const secs = clamped % 60;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+export function isSubmissionsClosed(session: FinalJeopardySession): boolean {
+  return (
+    session.phase === 'clue' &&
+    session.submissionsLockedByTimer &&
+    !session.allowLateResponses
+  );
 }
 
 export function computeRevealOrder(
@@ -77,6 +102,8 @@ export function createFinalJeopardySession(
     clue: finalJeopardy.answer,
     correctResponse: finalJeopardy.question,
     correctResponseShown: false,
+    submissionsLockedByTimer: false,
+    allowLateResponses: false,
     entries,
     revealOrder: computeRevealOrder(players),
     revealIndex: 0,
@@ -232,8 +259,32 @@ export function advanceToClue(
     session: {
       ...session,
       phase: 'clue',
+      submissionsLockedByTimer: false,
+      allowLateResponses: false,
       entries: nextEntries,
     },
+  };
+}
+
+export function setTimerExpired(
+  session: FinalJeopardySession,
+  expired: boolean,
+): FinalJeopardySession {
+  if (session.submissionsLockedByTimer === expired) return session;
+  return {
+    ...session,
+    submissionsLockedByTimer: expired,
+  };
+}
+
+export function setAllowLateResponses(
+  session: FinalJeopardySession,
+  allow: boolean,
+): FinalJeopardySession {
+  if (session.allowLateResponses === allow) return session;
+  return {
+    ...session,
+    allowLateResponses: allow,
   };
 }
 
@@ -244,6 +295,12 @@ export function handlePhoneResponse(
 ): FinalJeopardyActionResult {
   if (session.phase !== 'clue') {
     return { session, error: 'Response submission is not currently open.' };
+  }
+  if (isSubmissionsClosed(session)) {
+    return {
+      session,
+      error: 'Time is up! Ask the host to allow late answers if needed.',
+    };
   }
   const entry = session.entries[playerId];
   if (!entry) {
@@ -433,6 +490,7 @@ export function advanceToDone(session: FinalJeopardySession): FinalJeopardySessi
 export function getPhoneStateForPlayer(
   session: FinalJeopardySession,
   player: Pick<Player, 'id' | 'name' | 'score'>,
+  timer?: FinalJeopardyTimerSnapshot,
 ): FinalJeopardyPhoneState {
   const entry = session.entries[player.id] ?? createEmptyEntry(player);
   const maxWager = maxFinalJeopardyWager(entry.startingScore);
@@ -443,6 +501,8 @@ export function getPhoneStateForPlayer(
         ? (entry.wager ?? 0)
         : -(entry.wager ?? 0)
       : undefined;
+
+  const isClue = session.phase === 'clue';
 
   return {
     phase: session.phase,
@@ -458,5 +518,9 @@ export function getPhoneStateForPlayer(
     revealResult: entry.wagerRevealed && entry.verdict ? entry.verdict : undefined,
     newScore:
       revealDelta !== undefined ? entry.startingScore + revealDelta : undefined,
+    timerSecondsLeft: isClue && timer ? timer.secondsLeft : undefined,
+    timerDurationSeconds: isClue && timer ? timer.durationSeconds : undefined,
+    timerRunning: isClue && timer ? timer.running : undefined,
+    submissionsClosed: isClue ? isSubmissionsClosed(session) : undefined,
   };
 }
