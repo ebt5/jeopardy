@@ -642,3 +642,92 @@
   font-weight: 900;
   color: #fff;
 }
+
+/* Synced countdown timer on phone */
+.fj-phone-timer {
+  width: 100%;
+  background: rgba(10, 26, 74, 0.85);
+  border: 2px solid rgba(255, 215, 0, 0.45);
+  border-radius: 14px;
+  padding: 0.7rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.fj-phone-timer.urgent {
+  border-color: rgba(243, 156, 18, 0.9);
+  box-shadow: 0 0 18px rgba(243, 156, 18, 0.3);
+}
+
+.fj-phone-timer.time-up {
+  border-color: rgba(231, 76, 60, 0.9);
+  box-shadow: 0 0 18px rgba(231, 76, 60, 0.3);
+}
+
+.fj-phone-timer-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.fj-phone-timer-clock {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1.7rem;
+  font-weight: 900;
+  color: #ffd700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fj-phone-timer.urgent .fj-phone-timer-clock {
+  color: #f5b041;
+}
+
+.fj-phone-timer.time-up .fj-phone-timer-clock {
+  color: #ff8a80;
+}
+
+.fj-phone-timer-status {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #a8b4d8;
+}
+
+.fj-phone-timer-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fj-phone-timer-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f6d45a, #ffd700);
+  transition: width 0.35s linear;
+}
+
+.fj-phone-timer.urgent .fj-phone-timer-fill {
+  background: linear-gradient(90deg, #e67e22, #f1c40f);
+}
+
+.fj-phone-timer.time-up .fj-phone-timer-fill {
+  background: #e74c3c;
+}
+
+.fj-phone-closed-banner {
+  background: rgba(231, 76, 60, 0.2);
+  border: 1px solid rgba(231, 76, 60, 0.55);
+  color: #ffb3ab;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.fj-phone-response-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

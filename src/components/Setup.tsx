@@ -12,6 +12,7 @@ import {
   upsertSavedBoard,
 } from '../storage';
 import { PlayerLobby } from './PlayerLobby';
+import { ThinkMusicSetting } from './ThinkMusicSetting';
 import type { UseBuzzerHostResult } from '../buzzer/useBuzzerHost';
 
 interface SetupProps {
@@ -476,6 +477,7 @@ export function Setup({ config, onChange, onStart, username, onLogout, buzzerHos
               placeholder="Correct response"
             />
           </label>
+          <ThinkMusicSetting showPreview />
         </div>
       </section>
 

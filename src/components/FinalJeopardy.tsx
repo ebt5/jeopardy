@@ -12,26 +12,38 @@ import {
   createFinalJeopardySession,
   DEFAULT_FJ_TIMER_SECONDS,
   formatScore,
+  formatTimer,
   getPhoneStateForPlayer,
   handlePhoneResponse,
   handlePhoneWager,
+  isSubmissionsClosed,
   judgePlayer,
   MAX_FJ_RESPONSE_LENGTH,
   nextUnrevealedIndex,
   revealPlayerWager,
+  setAllowLateResponses,
   setCorrectResponseShown,
   setHostResponse,
   setHostWager,
   setRevealIndex,
+  setTimerExpired,
   syncPlayersIntoSession,
   type FinalJeopardySession,
+  type FinalJeopardyTimerSnapshot,
 } from '../buzzer/final-jeopardy';
 import {
   playFinalJeopardyTimeUpSound,
   playFinalJeopardyVerdictSound,
   playFinalJeopardyWagerRevealSound,
   startFinalJeopardyThinkMusic,
+  unlockAudio,
 } from '../sound';
+import {
+  loadCustomThinkMusic,
+  subscribeCustomThinkMusicChange,
+  type CustomThinkMusicRecord,
+} from '../musicStorage';
+import { ThinkMusicSetting } from './ThinkMusicSetting';
 import './FinalJeopardy.css';
 
 type HostStep = 'category' | 'wagers' | 'clue' | 'reveal' | 'done';
@@ -115,24 +127,155 @@ export function FinalJeopardyView({
   // Track which player just had their wager revealed so we animate their score once
   const [justRevealedId, setJustRevealedId] = useState<string | null>(null);
 
-  // Think timer & synthesized music state
+  // 60-second think timer & music (default synthesized or host's local IndexedDB file)
   const [secondsLeft, setSecondsLeft] = useState<number>(DEFAULT_FJ_TIMER_SECONDS);
   const [timerRunning, setTimerRunning] = useState<boolean>(false);
   const [musicEnabled, setMusicEnabled] = useState<boolean>(true);
-  const stopMusicRef = useRef<(() => void) | null>(null);
+  const [audioBlocked, setAudioBlocked] = useState<boolean>(false);
+  const [customMusicRecord, setCustomMusicRecord] = useState<CustomThinkMusicRecord | null>(
+    null,
+  );
+
+  const synthStopRef = useRef<(() => void) | null>(null);
+  const customAudioRef = useRef<HTMLAudioElement | null>(null);
+  const customAudioUrlRef = useRef<string | null>(null);
+  const musicPlayingRef = useRef<'custom' | 'synth' | null>(null);
 
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const playersRef = useRef(players);
   playersRef.current = players;
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const timerRunningRef = useRef(timerRunning);
+  timerRunningRef.current = timerRunning;
+  const secondsLeftRef = useRef(secondsLeft);
+  secondsLeftRef.current = secondsLeft;
+  const musicEnabledRef = useRef(musicEnabled);
+  musicEnabledRef.current = musicEnabled;
   const lastSentStateRef = useRef<Map<string, string>>(new Map());
 
-  const stopMusic = useCallback(() => {
-    if (stopMusicRef.current) {
-      stopMusicRef.current();
-      stopMusicRef.current = null;
+  const stopAllThinkMusic = useCallback((resetPosition = false) => {
+    if (synthStopRef.current) {
+      synthStopRef.current();
+      synthStopRef.current = null;
     }
+    if (customAudioRef.current) {
+      try {
+        customAudioRef.current.pause();
+        if (resetPosition) {
+          customAudioRef.current.currentTime = 0;
+        }
+      } catch {
+        /* ignore audio errors */
+      }
+    }
+    musicPlayingRef.current = null;
   }, []);
+
+  const startThinkMusicNow = useCallback(
+    (elapsedSeconds: number, resetCustom = false) => {
+      unlockAudio();
+      const customAudio = customAudioRef.current;
+      if (customAudio) {
+        if (synthStopRef.current) {
+          synthStopRef.current();
+          synthStopRef.current = null;
+        }
+        try {
+          if (resetCustom) {
+            customAudio.currentTime = 0;
+          }
+          musicPlayingRef.current = 'custom';
+          const playPromise = customAudio.play();
+          if (playPromise && typeof playPromise.then === 'function') {
+            playPromise
+              .then(() => {
+                setAudioBlocked(false);
+              })
+              .catch(() => {
+                musicPlayingRef.current = null;
+                setAudioBlocked(true);
+              });
+          } else {
+            setAudioBlocked(false);
+          }
+        } catch {
+          musicPlayingRef.current = null;
+          setAudioBlocked(true);
+        }
+        return;
+      }
+
+      if (musicPlayingRef.current !== 'synth') {
+        musicPlayingRef.current = 'synth';
+        synthStopRef.current = startFinalJeopardyThinkMusic(elapsedSeconds);
+        setAudioBlocked(false);
+      }
+    },
+    [],
+  );
+
+  // Load any saved custom music file from IndexedDB & stay in sync with changes
+  useEffect(() => {
+    let active = true;
+    void loadCustomThinkMusic().then((rec) => {
+      if (active) setCustomMusicRecord(rec);
+    });
+    const unsub = subscribeCustomThinkMusicChange((next) => {
+      setCustomMusicRecord(next);
+    });
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, []);
+
+  // Preload custom audio element whenever the saved file changes
+  useEffect(() => {
+    const wasPlaying =
+      stepRef.current === 'clue' &&
+      timerRunningRef.current &&
+      musicEnabledRef.current &&
+      secondsLeftRef.current > 0;
+
+    stopAllThinkMusic(true);
+
+    if (customAudioUrlRef.current) {
+      URL.revokeObjectURL(customAudioUrlRef.current);
+      customAudioUrlRef.current = null;
+    }
+    customAudioRef.current = null;
+
+    if (customMusicRecord) {
+      const url = URL.createObjectURL(customMusicRecord.blob);
+      const audio = new Audio(url);
+      audio.loop = true;
+      audio.preload = 'auto';
+      customAudioUrlRef.current = url;
+      customAudioRef.current = audio;
+    }
+
+    if (wasPlaying) {
+      startThinkMusicNow(DEFAULT_FJ_TIMER_SECONDS - secondsLeftRef.current, true);
+    }
+
+    return () => {
+      if (customAudioRef.current) {
+        try {
+          customAudioRef.current.pause();
+          customAudioRef.current.src = '';
+        } catch {
+          /* ignore */
+        }
+        customAudioRef.current = null;
+      }
+      if (customAudioUrlRef.current) {
+        URL.revokeObjectURL(customAudioUrlRef.current);
+        customAudioUrlRef.current = null;
+      }
+    };
+  }, [customMusicRecord, stopAllThinkMusic, startThinkMusicNow]);
 
   // Keep session entries synced if a new player connects mid-Final
   useEffect(() => {
@@ -150,18 +293,33 @@ export function FinalJeopardyView({
     });
   }, [players]);
 
-  // Push personalized Final Jeopardy state to every connected phone (and restore on reconnect)
+  const currentTimerSnapshot = useCallback(
+    (): FinalJeopardyTimerSnapshot => ({
+      secondsLeft: secondsLeftRef.current,
+      durationSeconds: DEFAULT_FJ_TIMER_SECONDS,
+      running: timerRunningRef.current,
+    }),
+    [],
+  );
+
+  // Push personalized Final Jeopardy state + synced countdown to every connected phone
   useEffect(() => {
     if (!buzzerHost?.roomCode) {
       lastSentStateRef.current.clear();
       return;
     }
 
+    const timerSnapshot: FinalJeopardyTimerSnapshot = {
+      secondsLeft,
+      durationSeconds: DEFAULT_FJ_TIMER_SECONDS,
+      running: timerRunning,
+    };
+
     const activePeerIds = new Set<string>();
     for (const player of players) {
       if (!player.buzzerPeerId) continue;
       activePeerIds.add(player.buzzerPeerId);
-      const phoneState = getPhoneStateForPlayer(session, player);
+      const phoneState = getPhoneStateForPlayer(session, player, timerSnapshot);
       const serialized = JSON.stringify(phoneState);
       if (lastSentStateRef.current.get(player.buzzerPeerId) !== serialized) {
         lastSentStateRef.current.set(player.buzzerPeerId, serialized);
@@ -177,18 +335,18 @@ export function FinalJeopardyView({
         lastSentStateRef.current.delete(peerId);
       }
     }
-  }, [session, players, buzzerHost]);
+  }, [session, players, buzzerHost, secondsLeft, timerRunning]);
 
-  // Clear Final Jeopardy screen on phones when leaving Final Jeopardy
+  // Clear Final Jeopardy screen on phones and stop music when leaving Final Jeopardy
   useEffect(() => {
     return () => {
-      stopMusic();
+      stopAllThinkMusic(true);
       lastSentStateRef.current.clear();
       if (buzzerHost?.roomCode) {
         buzzerHost.broadcastMessage({ type: 'fj-state', state: null });
       }
     };
-  }, [buzzerHost, stopMusic]);
+  }, [buzzerHost, stopAllThinkMusic]);
 
   // Listen for phone fj-wager and fj-response messages
   useEffect(() => {
@@ -234,7 +392,7 @@ export function FinalJeopardyView({
           if (player) {
             buzzerHost.sendToPlayer(peerId, {
               type: 'fj-state',
-              state: getPhoneStateForPlayer(current, player),
+              state: getPhoneStateForPlayer(current, player, currentTimerSnapshot()),
             });
           }
           return;
@@ -246,9 +404,9 @@ export function FinalJeopardyView({
     );
 
     return unsubscribe;
-  }, [buzzerHost]);
+  }, [buzzerHost, currentTimerSnapshot]);
 
-  // Manage 30-second countdown interval
+  // Manage 60-second countdown interval
   useEffect(() => {
     if (!timerRunning || step !== 'clue') return;
 
@@ -256,7 +414,11 @@ export function FinalJeopardyView({
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           setTimerRunning(false);
+          stopAllThinkMusic(false);
           playFinalJeopardyTimeUpSound();
+          const expired = setTimerExpired(sessionRef.current, true);
+          sessionRef.current = expired;
+          setSession(expired);
           return 0;
         }
         return prev - 1;
@@ -264,18 +426,14 @@ export function FinalJeopardyView({
     }, 1000);
 
     return () => window.clearInterval(id);
-  }, [timerRunning, step]);
+  }, [timerRunning, step, stopAllThinkMusic]);
 
-  // Sync synthesized Web Audio think music with timerRunning & musicEnabled
+  // Ensure music stops if timer pauses, finishes, or host leaves clue step
   useEffect(() => {
-    if (timerRunning && musicEnabled && step === 'clue' && secondsLeft > 0) {
-      if (!stopMusicRef.current) {
-        stopMusicRef.current = startFinalJeopardyThinkMusic();
-      }
-    } else {
-      stopMusic();
+    if (!timerRunning || !musicEnabled || step !== 'clue' || secondsLeft <= 0) {
+      stopAllThinkMusic(false);
     }
-  }, [timerRunning, musicEnabled, step, secondsLeft, stopMusic]);
+  }, [timerRunning, musicEnabled, step, secondsLeft, stopAllThinkMusic]);
 
   // Escape shortcut
   useEffect(() => {
@@ -323,6 +481,9 @@ export function FinalJeopardyView({
   };
 
   const handleConfirmAllWagers = () => {
+    // Unlock audio right away inside the host's click gesture
+    unlockAudio();
+
     const hostOverrides: Record<string, number> = {};
     const unlockedConnectedNames: string[] = [];
 
@@ -365,8 +526,60 @@ export function FinalJeopardyView({
     setSession(res.session);
     setOverridingWagerId(null);
     setSecondsLeft(DEFAULT_FJ_TIMER_SECONDS);
-    setTimerRunning(false);
+    setTimerRunning(true);
     setStep('clue');
+
+    // Automatically start think music directly from this click gesture so autoplay never blocks it
+    if (musicEnabled) {
+      startThinkMusicNow(0, true);
+    }
+  };
+
+  const handlePauseTimer = () => {
+    setTimerRunning(false);
+    stopAllThinkMusic(false);
+  };
+
+  const handleStartOrResumeTimer = () => {
+    unlockAudio();
+    const restarting = secondsLeft === 0;
+    if (restarting) {
+      setSecondsLeft(DEFAULT_FJ_TIMER_SECONDS);
+      const reopened = setTimerExpired(sessionRef.current, false);
+      sessionRef.current = reopened;
+      setSession(reopened);
+    }
+    setTimerRunning(true);
+    if (musicEnabled) {
+      const elapsed = restarting ? 0 : DEFAULT_FJ_TIMER_SECONDS - secondsLeft;
+      startThinkMusicNow(elapsed, restarting);
+    }
+  };
+
+  const handleResetTimer = () => {
+    setTimerRunning(false);
+    setSecondsLeft(DEFAULT_FJ_TIMER_SECONDS);
+    stopAllThinkMusic(true);
+    const reopened = setTimerExpired(sessionRef.current, false);
+    sessionRef.current = reopened;
+    setSession(reopened);
+  };
+
+  const handleToggleMusic = () => {
+    const nextEnabled = !musicEnabled;
+    setMusicEnabled(nextEnabled);
+    if (!nextEnabled) {
+      stopAllThinkMusic(false);
+      setAudioBlocked(false);
+    } else if (step === 'clue' && timerRunning && secondsLeft > 0) {
+      startThinkMusicNow(DEFAULT_FJ_TIMER_SECONDS - secondsLeft, false);
+    }
+  };
+
+  const handleToggleAllowLate = () => {
+    const next = setAllowLateResponses(sessionRef.current, !session.allowLateResponses);
+    sessionRef.current = next;
+    setSession(next);
   };
 
   const handleBeginReveal = () => {
@@ -383,7 +596,7 @@ export function FinalJeopardyView({
       if (!ok) return;
     }
     setTimerRunning(false);
-    stopMusic();
+    stopAllThinkMusic(true);
     setEditingResponseId(null);
     const next = advanceToReveal(session, players);
     sessionRef.current = next;
@@ -480,7 +693,14 @@ export function FinalJeopardyView({
             </div>
           )}
 
-          <button type="button" className="btn primary large" onClick={() => setStep('wagers')}>
+          <button
+            type="button"
+            className="btn primary large"
+            onClick={() => {
+              unlockAudio();
+              setStep('wagers');
+            }}
+          >
             Continue
           </button>
         </div>
@@ -515,7 +735,16 @@ export function FinalJeopardyView({
               return (
                 <div key={p.id} className="fj-wager-row">
                   <div className="fj-wager-player">
-                    <span className="fj-wager-icon" title={isPhoneConnected ? 'Phone connected' : p.isManual ? 'Manual player' : 'Phone disconnected'}>
+                    <span
+                      className="fj-wager-icon"
+                      title={
+                        isPhoneConnected
+                          ? 'Phone connected'
+                          : p.isManual
+                            ? 'Manual player'
+                            : 'Phone disconnected'
+                      }
+                    >
                       {isPhoneConnected ? '📱' : p.isManual ? '🎤' : '⏳'}
                     </span>
                     <div>
@@ -563,9 +792,7 @@ export function FinalJeopardyView({
                       </div>
                     ) : isLocked ? (
                       <div className="fj-locked-indicator">
-                        <span className="fj-check-badge">
-                          ✓ Wager locked
-                        </span>
+                        <span className="fj-check-badge">✓ Wager locked</span>
                         <button
                           type="button"
                           className="btn small"
@@ -613,6 +840,8 @@ export function FinalJeopardyView({
             })}
           </div>
 
+          <ThinkMusicSetting compact />
+
           <div className="dd-wager-actions">
             <button type="button" className="btn" onClick={() => setStep('category')}>
               Back
@@ -626,14 +855,15 @@ export function FinalJeopardyView({
     );
   }
 
-  // ==================== STEP 3: CLUE & THINK TIMER ====================
+  // ==================== STEP 3: CLUE & 60s THINK TIMER ====================
   if (step === 'clue') {
     const progressPct = Math.max(
       0,
       Math.min(100, (secondsLeft / DEFAULT_FJ_TIMER_SECONDS) * 100),
     );
-    const isUrgent = timerRunning && secondsLeft <= 5 && secondsLeft > 0;
+    const isUrgent = timerRunning && secondsLeft <= 10 && secondsLeft > 0;
     const isTimeUp = secondsLeft === 0;
+    const submissionsClosed = isSubmissionsClosed(session);
 
     return (
       <div className="clue-overlay fj-overlay" role="dialog" aria-modal="true">
@@ -646,63 +876,104 @@ export function FinalJeopardyView({
         </div>
 
         <div className="fj-clue-stage">
-          <div className="fj-clue-main">
-            <p className="clue-label">CLUE</p>
-            <p className="clue-text">{session.clue}</p>
-          </div>
-
-          {/* Optional 30s Think Timer & Synthesized Music */}
-          <div className={`fj-timer-bar${isUrgent ? ' urgent' : ''}${isTimeUp ? ' time-up' : ''}`}>
+          {/* Prominent 60-second Countdown Timer & Music Controls */}
+          <div
+            className={`fj-timer-bar prominent${isUrgent ? ' urgent' : ''}${
+              isTimeUp ? ' time-up' : ''
+            }`}
+          >
             <div className="fj-timer-top">
-              <div className="fj-timer-clock">
-                {isTimeUp ? "TIME'S UP!" : `0:${String(secondsLeft).padStart(2, '0')}`}
+              <div className="fj-timer-clock-wrap">
+                <div className="fj-timer-clock" aria-live="polite">
+                  {isTimeUp ? "TIME'S UP!" : formatTimer(secondsLeft)}
+                </div>
+                <span className="fj-timer-sublabel">
+                  {isTimeUp
+                    ? submissionsClosed
+                      ? 'Submissions locked'
+                      : 'Late answers allowed'
+                    : timerRunning
+                      ? customMusicRecord
+                        ? `Playing: ${customMusicRecord.name}`
+                        : musicEnabled
+                          ? 'Think music playing'
+                          : 'Timer running (muted)'
+                      : 'Paused'}
+                </span>
               </div>
+
               <div className="fj-timer-controls">
                 {!timerRunning ? (
                   <button
                     type="button"
                     className="btn small primary"
-                    onClick={() => {
-                      if (secondsLeft === 0) setSecondsLeft(DEFAULT_FJ_TIMER_SECONDS);
-                      setTimerRunning(true);
-                    }}
+                    onClick={handleStartOrResumeTimer}
                   >
-                    {secondsLeft === DEFAULT_FJ_TIMER_SECONDS || secondsLeft === 0
-                      ? '▶ Start 30s Think Timer'
-                      : '▶ Resume'}
+                    {secondsLeft === 0
+                      ? '▶ Restart 1:00'
+                      : secondsLeft === DEFAULT_FJ_TIMER_SECONDS
+                        ? '▶ Start 1:00 Timer'
+                        : '▶ Resume'}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn small"
-                    onClick={() => setTimerRunning(false)}
-                  >
+                  <button type="button" className="btn small" onClick={handlePauseTimer}>
                     ⏸ Pause
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="btn small"
-                  onClick={() => {
-                    setTimerRunning(false);
-                    setSecondsLeft(DEFAULT_FJ_TIMER_SECONDS);
-                  }}
-                >
+                <button type="button" className="btn small" onClick={handleResetTimer}>
                   ↺ Reset
                 </button>
                 <button
                   type="button"
                   className={`btn small${musicEnabled ? ' fj-music-on' : ''}`}
-                  onClick={() => setMusicEnabled((v) => !v)}
-                  title="Toggle synthesized think music"
+                  onClick={handleToggleMusic}
+                  title="Toggle think music"
                 >
                   {musicEnabled ? '🔊 Music On' : '🔇 Music Off'}
                 </button>
               </div>
             </div>
+
             <div className="fj-timer-track">
               <div className="fj-timer-fill" style={{ width: `${progressPct}%` }} />
             </div>
+
+            {audioBlocked && musicEnabled && timerRunning && (
+              <div className="fj-audio-blocked-row">
+                <span>Browser paused audio autoplay.</span>
+                <button
+                  type="button"
+                  className="btn small primary"
+                  onClick={() =>
+                    startThinkMusicNow(DEFAULT_FJ_TIMER_SECONDS - secondsLeft, false)
+                  }
+                >
+                  🔊 Play Music
+                </button>
+              </div>
+            )}
+
+            {isTimeUp && hasConnectedPhones && (
+              <div className="fj-late-answers-row">
+                <span className="fj-late-status">
+                  {submissionsClosed
+                    ? '🔒 Phone submissions locked at 0:00.'
+                    : '🔓 Late answers are currently allowed.'}
+                </span>
+                <button
+                  type="button"
+                  className={`btn small ${submissionsClosed ? 'primary' : ''}`}
+                  onClick={handleToggleAllowLate}
+                >
+                  {submissionsClosed ? '🔓 Allow Late Answers' : '🔒 Lock Submissions'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="fj-clue-main">
+            <p className="clue-label">CLUE</p>
+            <p className="clue-text">{session.clue}</p>
           </div>
 
           {/* Player Response Checkmarks (no response content shown!) */}
@@ -724,7 +995,10 @@ export function FinalJeopardyView({
                       {isConnected ? '📱' : p.isManual ? '🎤' : '⏳'}
                     </span>
                     <span>{p.name}</span>
-                    <span className="fj-pill-check" aria-label={locked ? 'Submitted' : 'Waiting'}>
+                    <span
+                      className="fj-pill-check"
+                      aria-label={locked ? 'Submitted' : 'Waiting'}
+                    >
                       {locked ? '✓' : '…'}
                     </span>
                     {!isConnected && (
@@ -787,6 +1061,8 @@ export function FinalJeopardyView({
               </div>
             )}
           </div>
+
+          <ThinkMusicSetting compact />
         </div>
 
         <div className="clue-actions">

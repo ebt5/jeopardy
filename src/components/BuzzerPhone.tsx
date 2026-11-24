@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useBuzzerPhone } from '../buzzer/useBuzzerPhone';
 import type { FinalJeopardyPhoneState } from '../buzzer/types';
-import { formatScore, MAX_FJ_RESPONSE_LENGTH } from '../buzzer/final-jeopardy';
+import {
+  DEFAULT_FJ_TIMER_SECONDS,
+  formatScore,
+  formatTimer,
+  MAX_FJ_RESPONSE_LENGTH,
+} from '../buzzer/final-jeopardy';
 import './BuzzerPhone.css';
 
 const SAVED_NAME_KEY = 'jeopardy-buzzer-player-name';
@@ -42,10 +47,10 @@ function FinalJeopardyPhoneScreen({
     }
   }, [fj.maxWager]);
 
-  // Clear local error when phase or lock status changes
+  // Clear local error when phase, lock status, or submissionsClosed changes
   useEffect(() => {
     setLocalError(null);
-  }, [fj.phase, fj.wagerLocked, fj.responseLocked]);
+  }, [fj.phase, fj.wagerLocked, fj.responseLocked, fj.submissionsClosed]);
 
   const displayedError = localError ?? fjError;
 
@@ -67,6 +72,10 @@ function FinalJeopardyPhoneScreen({
   };
 
   const handleLockResponse = () => {
+    if (fj.submissionsClosed) {
+      setLocalError("Time is up! Ask the host to allow late answers if needed.");
+      return;
+    }
     const trimmed = responseInput.trim();
     if (!trimmed) {
       setLocalError('Please enter your response before submitting.');
@@ -77,6 +86,13 @@ function FinalJeopardyPhoneScreen({
   };
 
   const scoreClass = fj.score < 0 ? 'negative' : '';
+  const hasTimer = fj.phase === 'clue' && fj.timerSecondsLeft !== undefined;
+  const timerSeconds = fj.timerSecondsLeft ?? DEFAULT_FJ_TIMER_SECONDS;
+  const timerDuration = fj.timerDurationSeconds ?? DEFAULT_FJ_TIMER_SECONDS;
+  const timerPct =
+    timerDuration > 0 ? Math.max(0, Math.min(100, (timerSeconds / timerDuration) * 100)) : 0;
+  const timerUrgent = fj.timerRunning === true && timerSeconds <= 10 && timerSeconds > 0;
+  const timerUp = timerSeconds === 0;
 
   return (
     <div className="buzzer-phone fj-phone">
@@ -206,6 +222,32 @@ function FinalJeopardyPhoneScreen({
           </div>
         )}
 
+        {hasTimer && (
+          <div
+            className={`fj-phone-timer${timerUrgent ? ' urgent' : ''}${
+              timerUp ? ' time-up' : ''
+            }`}
+          >
+            <div className="fj-phone-timer-row">
+              <span className="fj-phone-timer-clock" aria-live="polite">
+                {timerUp ? "TIME'S UP!" : formatTimer(timerSeconds)}
+              </span>
+              <span className="fj-phone-timer-status">
+                {timerUp
+                  ? fj.submissionsClosed
+                    ? 'Submissions locked'
+                    : 'Late answers open'
+                  : fj.timerRunning
+                    ? 'Time remaining'
+                    : 'Paused'}
+              </span>
+            </div>
+            <div className="fj-phone-timer-track">
+              <div className="fj-phone-timer-fill" style={{ width: `${timerPct}%` }} />
+            </div>
+          </div>
+        )}
+
         {fj.phase === 'clue' && !fj.responseLocked && (
           <div className="fj-phone-card">
             {fj.clue && (
@@ -226,6 +268,13 @@ function FinalJeopardyPhoneScreen({
               </button>
             </div>
 
+            {fj.submissionsClosed && (
+              <div className="fj-phone-closed-banner">
+                🔒 Time&apos;s up — submissions are locked. If the host allows late answers, your
+                response will unlock automatically.
+              </div>
+            )}
+
             <label className="fj-phone-input-label">
               Your Response
               <textarea
@@ -234,6 +283,7 @@ function FinalJeopardyPhoneScreen({
                 value={responseInput}
                 placeholder="What is ...?"
                 className="fj-phone-response-input"
+                disabled={fj.submissionsClosed === true}
                 autoFocus
                 onChange={(e) => {
                   setResponseInput(e.target.value);
@@ -248,9 +298,9 @@ function FinalJeopardyPhoneScreen({
               type="button"
               className="btn primary large fj-phone-submit-btn"
               onClick={handleLockResponse}
-              disabled={!responseInput.trim()}
+              disabled={!responseInput.trim() || fj.submissionsClosed === true}
             >
-              Submit &amp; Lock Response
+              {fj.submissionsClosed ? 'Submissions Locked' : 'Submit & Lock Response'}
             </button>
             <p className="fj-phone-privacy-note">
               Your response stays hidden until the host reveals it.
