@@ -43,10 +43,9 @@ import {
   subscribeCustomThinkMusicChange,
   type CustomThinkMusicRecord,
 } from '../musicStorage';
-import { ThinkMusicSetting } from './ThinkMusicSetting';
 import './FinalJeopardy.css';
 
-type HostStep = 'category' | 'wagers' | 'clue' | 'reveal' | 'done';
+type HostStep = 'wagers' | 'clue' | 'reveal' | 'done';
 
 interface FinalJeopardyProps {
   finalJeopardy: FJ;
@@ -108,26 +107,28 @@ export function FinalJeopardyView({
   onDoneToSetup,
   buzzerHost,
 }: FinalJeopardyProps) {
-  const [step, setStep] = useState<HostStep>('category');
+  const [step, setStep] = useState<HostStep>('wagers');
   const [session, setSession] = useState<FinalJeopardySession>(() =>
     createFinalJeopardySession(finalJeopardy, players),
   );
 
-  // Manual wager inputs for players without locked phone wagers or when host overrides
-  const [manualWagers, setManualWagers] = useState<Record<string, string>>(() =>
-    Object.fromEntries(players.map((p) => [p.id, '0'])),
-  );
-  const [overridingWagerId, setOverridingWagerId] = useState<string | null>(null);
-  const [overrideWagerInput, setOverrideWagerInput] = useState<string>('0');
+  // Collapsible bottom host drawer (kept closed by default so the TV stays clean)
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Optional host response editing (during clue or reveal)
-  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
-  const [responseDraft, setResponseDraft] = useState<string>('');
+  // Masked wager drafts inside the host drawer (never pre-filled with secret phone wagers)
+  const [wagerDrafts, setWagerDrafts] = useState<Record<string, string>>({});
+
+  // Masked response drafts inside the host drawer during clue phase
+  const [responseDrafts, setResponseDrafts] = useState<Record<string, string>>({});
+
+  // Reveal-phase override drafts inside the collapsible drawer
+  const [revealResponseDraft, setRevealResponseDraft] = useState('');
+  const [revealWagerDraft, setRevealWagerDraft] = useState('');
 
   // Track which player just had their wager revealed so we animate their score once
   const [justRevealedId, setJustRevealedId] = useState<string | null>(null);
 
-  // 60-second think timer & music (default synthesized or host's local IndexedDB file)
+  // 60-second think timer & music (default synthesized or host's local IndexedDB file from Setup)
   const [secondsLeft, setSecondsLeft] = useState<number>(DEFAULT_FJ_TIMER_SECONDS);
   const [timerRunning, setTimerRunning] = useState<boolean>(false);
   const [musicEnabled, setMusicEnabled] = useState<boolean>(true);
@@ -216,7 +217,7 @@ export function FinalJeopardyView({
     [],
   );
 
-  // Load any saved custom music file from IndexedDB & stay in sync with changes
+  // Load any saved custom music file from IndexedDB (configured in Setup)
   useEffect(() => {
     let active = true;
     void loadCustomThinkMusic().then((rec) => {
@@ -280,17 +281,6 @@ export function FinalJeopardyView({
   // Keep session entries synced if a new player connects mid-Final
   useEffect(() => {
     setSession((prev) => syncPlayersIntoSession(prev, players));
-    setManualWagers((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const p of players) {
-        if (!(p.id in next)) {
-          next[p.id] = '0';
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
   }, [players]);
 
   const currentTimerSnapshot = useCallback(
@@ -446,6 +436,10 @@ export function FinalJeopardyView({
       }
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (drawerOpen) {
+          setDrawerOpen(false);
+          return;
+        }
         if (step === 'done') onClose();
         else if (window.confirm('Exit Final Jeopardy and return to the board?')) {
           onClose();
@@ -454,22 +448,31 @@ export function FinalJeopardyView({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step, onClose]);
+  }, [step, drawerOpen, onClose]);
 
   const hasConnectedPhones = players.some((p) => Boolean(p.buzzerPeerId));
-  const wagersLockedCount = players.filter(
-    (p) => session.entries[p.id]?.wagerLocked,
-  ).length;
-  const responsesLockedCount = players.filter(
-    (p) => session.entries[p.id]?.responseLocked,
-  ).length;
+  const hasManualOrUnconnected = players.some((p) => !p.buzzerPeerId);
 
-  const handleSaveWagerOverride = (playerId: string) => {
+  const parseWagerDraft = (raw: string, max: number): number | null => {
+    if (max === 0) return 0;
+    const trimmed = raw.trim();
+    if (!/^\d+$/.test(trimmed)) return null;
+    const n = Number(trimmed);
+    if (!Number.isSafeInteger(n) || n < 0 || n > max) return null;
+    return n;
+  };
+
+  const handleLockSingleHostWager = (playerId: string) => {
     const player = players.find((p) => p.id === playerId);
     const entry = session.entries[playerId];
     if (!player || !entry) return;
     const max = maxFinalJeopardyWager(entry.startingScore);
-    const parsed = max === 0 ? 0 : parseInt(overrideWagerInput.trim() || '0', 10);
+    const draft = wagerDrafts[playerId] ?? '';
+    const parsed = parseWagerDraft(draft, max);
+    if (parsed === null) {
+      window.alert(`${player.name}: enter a whole dollar amount from $0 up to $${max}.`);
+      return;
+    }
     const res = setHostWager(session, playerId, parsed);
     if (res.error) {
       window.alert(`${player.name}: ${res.error}`);
@@ -477,7 +480,12 @@ export function FinalJeopardyView({
     }
     sessionRef.current = res.session;
     setSession(res.session);
-    setOverridingWagerId(null);
+    // Clear draft immediately so the wager amount never lingers in any input DOM value
+    setWagerDrafts((prev) => {
+      const next = { ...prev };
+      delete next[playerId];
+      return next;
+    });
   };
 
   const handleConfirmAllWagers = () => {
@@ -490,6 +498,18 @@ export function FinalJeopardyView({
     for (const p of players) {
       const entry = session.entries[p.id];
       const max = maxFinalJeopardyWager(entry?.startingScore ?? p.score);
+      const draft = wagerDrafts[p.id];
+
+      if (draft !== undefined && draft.trim() !== '') {
+        const parsed = parseWagerDraft(draft, max);
+        if (parsed === null) {
+          window.alert(`${p.name}: enter a whole dollar amount from $0 up to $${max}.`);
+          return;
+        }
+        hostOverrides[p.id] = parsed;
+        continue;
+      }
+
       if (entry?.wagerLocked) continue;
 
       if (p.buzzerPeerId) {
@@ -499,12 +519,7 @@ export function FinalJeopardyView({
           hostOverrides[p.id] = 0;
         }
       } else {
-        const raw = max === 0 ? 0 : parseInt((manualWagers[p.id] ?? '0').trim() || '0', 10);
-        if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 0 || raw > max) {
-          window.alert(`${p.name}: wager must be between $0 and $${max}.`);
-          return;
-        }
-        hostOverrides[p.id] = raw;
+        hostOverrides[p.id] = 0;
       }
     }
 
@@ -524,7 +539,8 @@ export function FinalJeopardyView({
     }
     sessionRef.current = res.session;
     setSession(res.session);
-    setOverridingWagerId(null);
+    setWagerDrafts({});
+    setDrawerOpen(false);
     setSecondsLeft(DEFAULT_FJ_TIMER_SECONDS);
     setTimerRunning(true);
     setStep('clue');
@@ -533,6 +549,19 @@ export function FinalJeopardyView({
     if (musicEnabled) {
       startThinkMusicNow(0, true);
     }
+  };
+
+  const handleSaveClueHostResponse = (playerId: string) => {
+    const draft = responseDrafts[playerId] ?? '';
+    const next = setHostResponse(session, playerId, draft);
+    sessionRef.current = next;
+    setSession(next);
+    // Clear draft immediately so the response text never lingers in the DOM
+    setResponseDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[playerId];
+      return copy;
+    });
   };
 
   const handlePauseTimer = () => {
@@ -597,7 +626,10 @@ export function FinalJeopardyView({
     }
     setTimerRunning(false);
     stopAllThinkMusic(true);
-    setEditingResponseId(null);
+    setResponseDrafts({});
+    setDrawerOpen(false);
+    setRevealResponseDraft('');
+    setRevealWagerDraft('');
     const next = advanceToReveal(session, players);
     sessionRef.current = next;
     setSession(next);
@@ -605,12 +637,37 @@ export function FinalJeopardyView({
     setStep('reveal');
   };
 
-  const handleSaveHostResponse = (playerId: string) => {
-    const next = setHostResponse(session, playerId, responseDraft);
-    sessionRef.current = next;
-    setSession(next);
-    setEditingResponseId(null);
-    setResponseDraft('');
+  const handleSaveRevealOverrides = (playerId: string) => {
+    const player = players.find((p) => p.id === playerId);
+    const entry = session.entries[playerId];
+    if (!player || !entry) return;
+
+    let nextSession = session;
+
+    if (revealResponseDraft.trim() !== '') {
+      nextSession = setHostResponse(nextSession, playerId, revealResponseDraft);
+    }
+
+    if (revealWagerDraft.trim() !== '' && !entry.wagerRevealed) {
+      const max = maxFinalJeopardyWager(entry.startingScore);
+      const parsed = parseWagerDraft(revealWagerDraft, max);
+      if (parsed === null) {
+        window.alert(`${player.name}: enter a whole dollar amount from $0 up to $${max}.`);
+        return;
+      }
+      const res = setHostWager(nextSession, playerId, parsed);
+      if (res.error) {
+        window.alert(`${player.name}: ${res.error}`);
+        return;
+      }
+      nextSession = res.session;
+    }
+
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+    setRevealResponseDraft('');
+    setRevealWagerDraft('');
+    setDrawerOpen(false);
   };
 
   const handleJudge = (playerId: string, verdict: 'correct' | 'incorrect') => {
@@ -633,6 +690,8 @@ export function FinalJeopardyView({
     sessionRef.current = next;
     setSession(next);
     setJustRevealedId(playerId);
+    setDrawerOpen(false);
+    setRevealWagerDraft('');
     if (scoreDelta !== 0) {
       onAdjustScore(playerId, scoreDelta);
     }
@@ -641,8 +700,9 @@ export function FinalJeopardyView({
   const handleGoToNextPlayer = () => {
     const nextIdx = nextUnrevealedIndex(session);
     setJustRevealedId(null);
-    setEditingResponseId(null);
-    setOverridingWagerId(null);
+    setDrawerOpen(false);
+    setRevealResponseDraft('');
+    setRevealWagerDraft('');
     if (nextIdx !== null) {
       const next = setRevealIndex(session, nextIdx);
       sessionRef.current = next;
@@ -655,207 +715,132 @@ export function FinalJeopardyView({
     }
   };
 
-  // ==================== STEP 1: CATEGORY ====================
-  if (step === 'category') {
-    return (
-      <div className="clue-overlay fj-overlay" role="dialog" aria-modal="true">
-        <button type="button" className="clue-close" onClick={onClose} aria-label="Close">
-          ×
-        </button>
-        <div className="dd-splash-body">
-          <p className="dd-splash-label">FINAL JEOPARDY</p>
-          <p className="dd-splash-category">{session.category}</p>
-
-          {hasConnectedPhones && (
-            <div className="fj-status-strip">
-              <p className="fj-status-summary">
-                Phone wagers locked: {wagersLockedCount} / {players.length}
-              </p>
-              <div className="fj-status-pills">
-                {players.map((p) => {
-                  const locked = session.entries[p.id]?.wagerLocked === true;
-                  return (
-                    <span
-                      key={p.id}
-                      className={`fj-status-pill ${locked ? 'is-ready' : 'is-waiting'}`}
-                    >
-                      <span className="fj-pill-icon">
-                        {p.buzzerPeerId ? '📱' : p.isManual ? '🎤' : '⏳'}
-                      </span>
-                      <span>{p.name}</span>
-                      <span className="fj-pill-check" aria-label={locked ? 'Locked' : 'Waiting'}>
-                        {locked ? '✓' : '…'}
-                      </span>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="btn primary large"
-            onClick={() => {
-              unlockAudio();
-              setStep('wagers');
-            }}
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ==================== STEP 2: WAGERS ====================
+  // ==================== PHASE 1: CATEGORY & WAGERING ====================
   if (step === 'wagers') {
     return (
-      <div className="clue-overlay fj-overlay" role="dialog" aria-modal="true">
-        <button type="button" className="clue-close" onClick={onClose} aria-label="Close">
+      <div className="clue-overlay fj-overlay fj-tv-shell" role="dialog" aria-modal="true">
+        <button type="button" className="fj-exit-btn" onClick={onClose} aria-label="Close">
           ×
         </button>
-        <div className="dd-panel fj-panel">
-          <p className="dd-badge">FINAL JEOPARDY</p>
-          <h2 className="dd-heading">Wagers</h2>
-          <p className="clue-hint">
-            Category: {session.category}
-            {hasConnectedPhones && ` · ${wagersLockedCount}/${players.length} locked`}
-          </p>
 
-          <div className="fj-wager-list">
+        <main className="fj-tv-stage fj-tv-wagers-stage">
+          <p className="fj-tv-kicker">FINAL JEOPARDY!</p>
+          <div className="fj-tv-category-frame">
+            <h1 className="fj-tv-category-title">{session.category}</h1>
+          </div>
+          <p className="fj-tv-subtitle">Make your wagers</p>
+
+          {/* Contestant Podium Strip — neutral status ONLY, never shows wager amounts */}
+          <div className="fj-podium-strip" aria-label="Contestants">
             {players.map((p) => {
               const entry = session.entries[p.id];
               const startingScore = entry?.startingScore ?? p.score;
-              const max = maxFinalJeopardyWager(startingScore);
-              const isPhoneConnected = Boolean(p.buzzerPeerId);
               const isLocked = entry?.wagerLocked === true;
-              const isOverriding = overridingWagerId === p.id;
-
               return (
-                <div key={p.id} className="fj-wager-row">
-                  <div className="fj-wager-player">
-                    <span
-                      className="fj-wager-icon"
-                      title={
-                        isPhoneConnected
-                          ? 'Phone connected'
-                          : p.isManual
-                            ? 'Manual player'
-                            : 'Phone disconnected'
-                      }
-                    >
-                      {isPhoneConnected ? '📱' : p.isManual ? '🎤' : '⏳'}
-                    </span>
-                    <div>
-                      <div className="fj-wager-name">{p.name}</div>
-                      <div className="fj-wager-score">
-                        {formatScore(startingScore)} · max {formatScore(max)}
-                        {!isPhoneConnected && !p.isManual && buzzerHost?.roomCode && (
-                          <span className="fj-disconnected-tag"> · disconnected</span>
-                        )}
-                      </div>
-                    </div>
+                <div
+                  key={p.id}
+                  className={`fj-contestant-card${isLocked ? ' is-locked' : ''}`}
+                >
+                  <div className="fj-contestant-name">{p.name}</div>
+                  <div
+                    className={`fj-contestant-score${startingScore < 0 ? ' negative' : ''}`}
+                  >
+                    {formatScore(startingScore)}
                   </div>
-
-                  <div className="fj-wager-control">
-                    {isOverriding ? (
-                      <div className="fj-override-editor">
-                        <input
-                          type="number"
-                          min={0}
-                          max={max}
-                          step={1}
-                          value={max === 0 ? '0' : overrideWagerInput}
-                          disabled={max === 0}
-                          aria-label={`${p.name} wager override`}
-                          onChange={(e) => setOverrideWagerInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveWagerOverride(p.id);
-                          }}
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          className="btn small primary"
-                          onClick={() => handleSaveWagerOverride(p.id)}
-                        >
-                          Lock
-                        </button>
-                        <button
-                          type="button"
-                          className="btn small"
-                          onClick={() => setOverridingWagerId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : isLocked ? (
-                      <div className="fj-locked-indicator">
-                        <span className="fj-check-badge">✓ Wager locked</span>
-                        <button
-                          type="button"
-                          className="btn small"
-                          onClick={() => {
-                            setOverridingWagerId(p.id);
-                            setOverrideWagerInput(String(entry?.wager ?? 0));
-                          }}
-                        >
-                          Override
-                        </button>
-                      </div>
-                    ) : isPhoneConnected ? (
-                      <div className="fj-locked-indicator">
-                        <span className="fj-waiting-badge">⏳ Waiting on phone…</span>
-                        <button
-                          type="button"
-                          className="btn small"
-                          onClick={() => {
-                            setOverridingWagerId(p.id);
-                            setOverrideWagerInput('0');
-                          }}
-                        >
-                          Enter manually
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="fj-manual-input-wrap">
-                        <input
-                          type="number"
-                          min={0}
-                          max={max}
-                          step={1}
-                          aria-label={`${p.name} wager`}
-                          value={max === 0 ? '0' : (manualWagers[p.id] ?? '0')}
-                          disabled={max === 0}
-                          onChange={(e) =>
-                            setManualWagers((prev) => ({ ...prev, [p.id]: e.target.value }))
-                          }
-                        />
-                      </div>
-                    )}
+                  <div className={`fj-contestant-status${isLocked ? ' locked' : ''}`}>
+                    {isLocked ? '✓ Locked in' : 'Wagering…'}
                   </div>
                 </div>
               );
             })}
           </div>
+        </main>
 
-          <ThinkMusicSetting compact />
+        {/* Collapsible Host Drawer (masked password inputs — amounts never shown on screen) */}
+        {drawerOpen && (
+          <section className="fj-host-drawer" aria-label="Host wager entry">
+            <div className="fj-host-drawer-header">
+              <span>Host Wager Entry &amp; Overrides (hidden from TV)</span>
+              <button
+                type="button"
+                className="fj-host-btn"
+                onClick={() => setDrawerOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+            <div className="fj-host-drawer-list">
+              {players.map((p) => {
+                const entry = session.entries[p.id];
+                const startingScore = entry?.startingScore ?? p.score;
+                const max = maxFinalJeopardyWager(startingScore);
+                const isLocked = entry?.wagerLocked === true;
+                const draft = wagerDrafts[p.id] ?? '';
+                return (
+                  <div key={p.id} className="fj-host-drawer-row">
+                    <span className="fj-host-drawer-name">
+                      {p.name}
+                      {isLocked && <span className="fj-host-drawer-check"> ✓</span>}
+                    </span>
+                    <div className="fj-host-drawer-inputs">
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        className="fj-masked-input"
+                        aria-label={`${p.name} wager`}
+                        placeholder={max === 0 ? '$0 max' : isLocked ? 'Override ($)' : 'Wager ($)'}
+                        disabled={max === 0}
+                        value={max === 0 ? '' : draft}
+                        onChange={(e) =>
+                          setWagerDrafts((prev) => ({ ...prev, [p.id]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleLockSingleHostWager(p.id);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="fj-host-btn"
+                        disabled={max > 0 && draft.trim() === ''}
+                        onClick={() => handleLockSingleHostWager(p.id)}
+                      >
+                        Lock
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-          <div className="dd-wager-actions">
-            <button type="button" className="btn" onClick={() => setStep('category')}>
-              Back
-            </button>
-            <button type="button" className="btn primary large" onClick={handleConfirmAllWagers}>
-              Lock wagers &amp; reveal clue
+        {/* Subtle Host Controls tucked along the bottom edge */}
+        <footer className="fj-host-bar">
+          <div className="fj-host-bar-group">
+            <button
+              type="button"
+              className={`fj-host-btn${drawerOpen ? ' active' : ''}`}
+              onClick={() => setDrawerOpen((v) => !v)}
+            >
+              {hasManualOrUnconnected ? 'Enter / Override Wagers' : 'Override Wagers'}
             </button>
           </div>
-        </div>
+          <div className="fj-host-bar-group">
+            <button
+              type="button"
+              className="fj-host-btn fj-host-btn-primary"
+              onClick={handleConfirmAllWagers}
+            >
+              Lock Wagers &amp; Reveal Clue →
+            </button>
+          </div>
+        </footer>
       </div>
     );
   }
 
-  // ==================== STEP 3: CLUE & 60s THINK TIMER ====================
+  // ==================== PHASE 2: CLUE & 60s COUNTDOWN ====================
   if (step === 'clue') {
     const progressPct = Math.max(
       0,
@@ -866,215 +851,186 @@ export function FinalJeopardyView({
     const submissionsClosed = isSubmissionsClosed(session);
 
     return (
-      <div className="clue-overlay fj-overlay" role="dialog" aria-modal="true">
-        <button type="button" className="clue-close" onClick={onClose} aria-label="Close">
+      <div className="clue-overlay fj-overlay fj-tv-shell" role="dialog" aria-modal="true">
+        <button type="button" className="fj-exit-btn" onClick={onClose} aria-label="Close">
           ×
         </button>
-        <div className="clue-meta">
-          <span>{session.category}</span>
-          <span className="dd-inline-badge">FINAL JEOPARDY</span>
-        </div>
 
-        <div className="fj-clue-stage">
-          {/* Prominent 60-second Countdown Timer & Music Controls */}
+        <header className="fj-tv-topbar">
+          <span className="fj-tv-topbar-category">{session.category}</span>
+        </header>
+
+        <main className="fj-tv-stage fj-tv-clue-stage">
+          {/* Iconic Jeopardy Clue Centerpiece */}
+          <div className="fj-tv-clue-card">
+            <p className="fj-tv-clue-text">{session.clue}</p>
+          </div>
+
+          {/* Big Broadcast Countdown Timer */}
           <div
-            className={`fj-timer-bar prominent${isUrgent ? ' urgent' : ''}${
-              isTimeUp ? ' time-up' : ''
+            className={`fj-tv-timer${isUrgent ? ' urgent' : ''}${isTimeUp ? ' time-up' : ''}${
+              !timerRunning && !isTimeUp ? ' paused' : ''
             }`}
           >
-            <div className="fj-timer-top">
-              <div className="fj-timer-clock-wrap">
-                <div className="fj-timer-clock" aria-live="polite">
-                  {isTimeUp ? "TIME'S UP!" : formatTimer(secondsLeft)}
-                </div>
-                <span className="fj-timer-sublabel">
-                  {isTimeUp
-                    ? submissionsClosed
-                      ? 'Submissions locked'
-                      : 'Late answers allowed'
-                    : timerRunning
-                      ? customMusicRecord
-                        ? `Playing: ${customMusicRecord.name}`
-                        : musicEnabled
-                          ? 'Think music playing'
-                          : 'Timer running (muted)'
-                      : 'Paused'}
-                </span>
-              </div>
-
-              <div className="fj-timer-controls">
-                {!timerRunning ? (
-                  <button
-                    type="button"
-                    className="btn small primary"
-                    onClick={handleStartOrResumeTimer}
-                  >
-                    {secondsLeft === 0
-                      ? '▶ Restart 1:00'
-                      : secondsLeft === DEFAULT_FJ_TIMER_SECONDS
-                        ? '▶ Start 1:00 Timer'
-                        : '▶ Resume'}
-                  </button>
-                ) : (
-                  <button type="button" className="btn small" onClick={handlePauseTimer}>
-                    ⏸ Pause
-                  </button>
-                )}
-                <button type="button" className="btn small" onClick={handleResetTimer}>
-                  ↺ Reset
-                </button>
-                <button
-                  type="button"
-                  className={`btn small${musicEnabled ? ' fj-music-on' : ''}`}
-                  onClick={handleToggleMusic}
-                  title="Toggle think music"
-                >
-                  {musicEnabled ? '🔊 Music On' : '🔇 Music Off'}
-                </button>
-              </div>
+            <div className="fj-timer-clock" aria-live="polite">
+              {isTimeUp ? "TIME'S UP!" : formatTimer(secondsLeft)}
             </div>
-
             <div className="fj-timer-track">
               <div className="fj-timer-fill" style={{ width: `${progressPct}%` }} />
             </div>
-
-            {audioBlocked && musicEnabled && timerRunning && (
-              <div className="fj-audio-blocked-row">
-                <span>Browser paused audio autoplay.</span>
-                <button
-                  type="button"
-                  className="btn small primary"
-                  onClick={() =>
-                    startThinkMusicNow(DEFAULT_FJ_TIMER_SECONDS - secondsLeft, false)
-                  }
-                >
-                  🔊 Play Music
-                </button>
-              </div>
-            )}
-
-            {isTimeUp && hasConnectedPhones && (
-              <div className="fj-late-answers-row">
-                <span className="fj-late-status">
-                  {submissionsClosed
-                    ? '🔒 Phone submissions locked at 0:00.'
-                    : '🔓 Late answers are currently allowed.'}
-                </span>
-                <button
-                  type="button"
-                  className={`btn small ${submissionsClosed ? 'primary' : ''}`}
-                  onClick={handleToggleAllowLate}
-                >
-                  {submissionsClosed ? '🔓 Allow Late Answers' : '🔒 Lock Submissions'}
-                </button>
-              </div>
-            )}
           </div>
 
-          <div className="fj-clue-main">
-            <p className="clue-label">CLUE</p>
-            <p className="clue-text">{session.clue}</p>
+          {/* Contestant Podium Strip — neutral checkmarks ONLY, no response content */}
+          <div className="fj-podium-strip" aria-label="Contestant status">
+            {players.map((p) => {
+              const entry = session.entries[p.id];
+              const locked = entry?.responseLocked === true;
+              return (
+                <div
+                  key={p.id}
+                  className={`fj-contestant-card compact${locked ? ' is-locked' : ''}`}
+                >
+                  <div className="fj-contestant-name">{p.name}</div>
+                  <div className={`fj-contestant-status${locked ? ' locked' : ''}`}>
+                    {locked ? '✓ Locked in' : isTimeUp && submissionsClosed ? 'Time up' : 'Writing…'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        </main>
 
-          {/* Player Response Checkmarks (no response content shown!) */}
-          <div className="fj-status-strip">
-            <p className="fj-status-summary">
-              Responses submitted: {responsesLockedCount} / {players.length}
-            </p>
-            <div className="fj-status-pills">
+        {/* Collapsible Host Drawer for entering/overriding responses (masked so nothing shows on TV) */}
+        {drawerOpen && (
+          <section className="fj-host-drawer" aria-label="Host response entry">
+            <div className="fj-host-drawer-header">
+              <span>Host Response Entry &amp; Overrides (hidden from TV)</span>
+              <button
+                type="button"
+                className="fj-host-btn"
+                onClick={() => setDrawerOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+            <div className="fj-host-drawer-list">
               {players.map((p) => {
                 const entry = session.entries[p.id];
                 const locked = entry?.responseLocked === true;
-                const isConnected = Boolean(p.buzzerPeerId);
+                const draft = responseDrafts[p.id] ?? '';
                 return (
-                  <div
-                    key={p.id}
-                    className={`fj-status-pill ${locked ? 'is-ready' : 'is-waiting'}`}
-                  >
-                    <span className="fj-pill-icon">
-                      {isConnected ? '📱' : p.isManual ? '🎤' : '⏳'}
+                  <div key={p.id} className="fj-host-drawer-row">
+                    <span className="fj-host-drawer-name">
+                      {p.name}
+                      {locked && <span className="fj-host-drawer-check"> ✓</span>}
                     </span>
-                    <span>{p.name}</span>
-                    <span
-                      className="fj-pill-check"
-                      aria-label={locked ? 'Submitted' : 'Waiting'}
-                    >
-                      {locked ? '✓' : '…'}
-                    </span>
-                    {!isConnected && (
+                    <div className="fj-host-drawer-inputs">
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        maxLength={MAX_FJ_RESPONSE_LENGTH}
+                        className="fj-masked-input wide"
+                        aria-label={`${p.name} response`}
+                        placeholder={locked ? 'Override response' : 'Enter response'}
+                        value={draft}
+                        onChange={(e) =>
+                          setResponseDrafts((prev) => ({ ...prev, [p.id]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveClueHostResponse(p.id);
+                        }}
+                      />
                       <button
                         type="button"
-                        className="fj-pill-edit-btn"
-                        title={`Enter or edit response for ${p.name}`}
-                        onClick={() => {
-                          setEditingResponseId(p.id);
-                          setResponseDraft(entry?.response ?? '');
-                        }}
+                        className="fj-host-btn"
+                        disabled={draft.trim() === ''}
+                        onClick={() => handleSaveClueHostResponse(p.id)}
                       >
-                        ✎
+                        Lock
                       </button>
-                    )}
+                    </div>
                   </div>
                 );
               })}
             </div>
+          </section>
+        )}
 
-            {editingResponseId && (
-              <div className="fj-manual-response-box">
-                <span className="fj-manual-response-label">
-                  Manual response for{' '}
-                  <strong>
-                    {players.find((p) => p.id === editingResponseId)?.name}
-                  </strong>
-                  :
-                </span>
-                <div className="fj-manual-response-row">
-                  <input
-                    type="text"
-                    maxLength={MAX_FJ_RESPONSE_LENGTH}
-                    value={responseDraft}
-                    placeholder="What is ...?"
-                    autoFocus
-                    onChange={(e) => setResponseDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveHostResponse(editingResponseId);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn small primary"
-                    onClick={() => handleSaveHostResponse(editingResponseId)}
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    className="btn small"
-                    onClick={() => {
-                      setEditingResponseId(null);
-                      setResponseDraft('');
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
+        {/* Subtle Host Controls tucked along the bottom edge */}
+        <footer className="fj-host-bar">
+          <div className="fj-host-bar-group">
+            {!timerRunning ? (
+              <button
+                type="button"
+                className="fj-host-btn"
+                onClick={handleStartOrResumeTimer}
+              >
+                {secondsLeft === 0
+                  ? '▶ Restart 1:00'
+                  : secondsLeft === DEFAULT_FJ_TIMER_SECONDS
+                    ? '▶ Start'
+                    : '▶ Resume'}
+              </button>
+            ) : (
+              <button type="button" className="fj-host-btn" onClick={handlePauseTimer}>
+                ⏸ Pause
+              </button>
             )}
+            <button type="button" className="fj-host-btn" onClick={handleResetTimer}>
+              ↺ Reset
+            </button>
+            <button
+              type="button"
+              className="fj-host-btn"
+              onClick={handleToggleMusic}
+              title="Toggle think music"
+            >
+              {musicEnabled ? '🔊 Music On' : '🔇 Music Off'}
+            </button>
+            {audioBlocked && musicEnabled && timerRunning && (
+              <button
+                type="button"
+                className="fj-host-btn fj-host-btn-primary"
+                onClick={() =>
+                  startThinkMusicNow(DEFAULT_FJ_TIMER_SECONDS - secondsLeft, false)
+                }
+              >
+                🔊 Play Music
+              </button>
+            )}
+            {isTimeUp && hasConnectedPhones && (
+              <button
+                type="button"
+                className={`fj-host-btn${submissionsClosed ? ' fj-host-btn-primary' : ' active'}`}
+                onClick={handleToggleAllowLate}
+              >
+                {submissionsClosed ? 'Allow Late Answers' : 'Lock Submissions'}
+              </button>
+            )}
+            <button
+              type="button"
+              className={`fj-host-btn${drawerOpen ? ' active' : ''}`}
+              onClick={() => setDrawerOpen((v) => !v)}
+            >
+              Overrides
+            </button>
           </div>
 
-          <ThinkMusicSetting compact />
-        </div>
-
-        <div className="clue-actions">
-          <button type="button" className="btn primary large" onClick={handleBeginReveal}>
-            Begin Reveal →
-          </button>
-        </div>
+          <div className="fj-host-bar-group">
+            <button
+              type="button"
+              className="fj-host-btn fj-host-btn-primary"
+              onClick={handleBeginReveal}
+            >
+              Begin Reveal →
+            </button>
+          </div>
+        </footer>
       </div>
     );
   }
 
-  // ==================== STEP 4: TV-STYLE REVEAL ====================
+  // ==================== PHASE 3: TV-STYLE REVEAL ====================
   if (step === 'reveal') {
     const activePlayerId = session.revealOrder[session.revealIndex];
     const activePlayer = players.find((p) => p.id === activePlayerId);
@@ -1094,30 +1050,18 @@ export function FinalJeopardyView({
         : startingScore;
 
     return (
-      <div className="clue-overlay fj-overlay fj-reveal-overlay" role="dialog" aria-modal="true">
-        <button type="button" className="clue-close" onClick={onClose} aria-label="Close">
+      <div
+        className="clue-overlay fj-overlay fj-tv-shell fj-reveal-overlay"
+        role="dialog"
+        aria-modal="true"
+      >
+        <button type="button" className="fj-exit-btn" onClick={onClose} aria-label="Close">
           ×
         </button>
 
-        <div className="clue-meta">
-          <span>{session.category}</span>
-          <span className="clue-meta-right">
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => {
-                const next = setCorrectResponseShown(session, !session.correctResponseShown);
-                sessionRef.current = next;
-                setSession(next);
-              }}
-            >
-              {session.correctResponseShown
-                ? 'Hide Correct Response'
-                : 'Reveal Correct Response'}
-            </button>
-            <span className="dd-inline-badge">FINAL JEOPARDY · REVEAL</span>
-          </span>
-        </div>
+        <header className="fj-tv-topbar">
+          <span className="fj-tv-topbar-category">{session.category}</span>
+        </header>
 
         <div className="fj-reveal-header-clues">
           <p className="fj-reveal-clue-reminder">{session.clue}</p>
@@ -1151,8 +1095,9 @@ export function FinalJeopardyView({
                 }`}
                 onClick={() => {
                   setJustRevealedId(null);
-                  setEditingResponseId(null);
-                  setOverridingWagerId(null);
+                  setDrawerOpen(false);
+                  setRevealResponseDraft('');
+                  setRevealWagerDraft('');
                   const next = setRevealIndex(session, idx);
                   sessionRef.current = next;
                   setSession(next);
@@ -1174,7 +1119,7 @@ export function FinalJeopardyView({
 
         {/* Main TV-style podium stage for the focused player */}
         {activePlayer && activeEntry && (
-          <div className="fj-podium-stage">
+          <main className="fj-podium-stage">
             <div className="fj-podium-header">
               <h2 className="fj-podium-name">{activePlayer.name}</h2>
               <div
@@ -1199,59 +1144,10 @@ export function FinalJeopardyView({
                 activeEntry.verdict ? ` verdict-${activeEntry.verdict}` : ''
               }`}
             >
-              <div className="fj-response-screen-top">
-                <span className="fj-response-screen-label">PLAYER RESPONSE</span>
-                {!activeEntry.wagerRevealed && editingResponseId !== activePlayer.id && (
-                  <button
-                    type="button"
-                    className="fj-response-edit-btn"
-                    onClick={() => {
-                      setEditingResponseId(activePlayer.id);
-                      setResponseDraft(activeEntry.response);
-                    }}
-                  >
-                    {activeEntry.response ? '✎ Edit' : '+ Type response'}
-                  </button>
-                )}
-              </div>
-
-              {editingResponseId === activePlayer.id ? (
-                <div className="fj-response-inline-edit">
-                  <input
-                    type="text"
-                    maxLength={MAX_FJ_RESPONSE_LENGTH}
-                    value={responseDraft}
-                    placeholder="Enter player's response..."
-                    autoFocus
-                    onChange={(e) => setResponseDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveHostResponse(activePlayer.id);
-                    }}
-                  />
-                  <div className="fj-response-inline-actions">
-                    <button
-                      type="button"
-                      className="btn small primary"
-                      onClick={() => handleSaveHostResponse(activePlayer.id)}
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      className="btn small"
-                      onClick={() => {
-                        setEditingResponseId(null);
-                        setResponseDraft('');
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : activeEntry.response ? (
+              {activeEntry.response ? (
                 <p className="fj-response-big-text">{activeEntry.response}</p>
               ) : (
-                <p className="fj-response-empty">(No written response — verbal)</p>
+                <p className="fj-response-empty">(No written response)</p>
               )}
 
               {activeEntry.verdict && (
@@ -1261,150 +1157,202 @@ export function FinalJeopardyView({
               )}
             </div>
 
-            {/* Wager Box + Step Actions */}
-            <div className="fj-podium-lower">
+            {/* Wager Plaque — amount only enters the DOM once Reveal Wager is clicked */}
+            {!activeEntry.wagerRevealed ? (
+              <div
+                className={`fj-wager-card ${activeEntry.verdict ? 'ready' : 'hidden'}`}
+              >
+                <span className="fj-wager-card-label">WAGER</span>
+                <span className="fj-wager-card-value">
+                  {activeEntry.verdict ? '$ ???' : '••••'}
+                </span>
+              </div>
+            ) : (
+              activeEntry.verdict && (
+                <div className={`fj-wager-card revealed ${activeEntry.verdict}`}>
+                  <span className="fj-wager-card-label">WAGER</span>
+                  <span className="fj-wager-card-value">
+                    {activeEntry.verdict === 'correct'
+                      ? `+${formatScore(wagerAmount)}`
+                      : `−${formatScore(wagerAmount)}`}
+                  </span>
+                </div>
+              )
+            )}
+          </main>
+        )}
+
+        {/* Collapsible Host Override Drawer during Reveal (wager input is masked) */}
+        {drawerOpen && activePlayer && activeEntry && !activeEntry.wagerRevealed && (
+          <section className="fj-host-drawer" aria-label="Host reveal override">
+            <div className="fj-host-drawer-header">
+              <span>Host Override — {activePlayer.name}</span>
+              <button
+                type="button"
+                className="fj-host-btn"
+                onClick={() => {
+                  setDrawerOpen(false);
+                  setRevealResponseDraft('');
+                  setRevealWagerDraft('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="fj-host-drawer-row">
+              <span className="fj-host-drawer-name">Response</span>
+              <div className="fj-host-drawer-inputs">
+                <input
+                  type="text"
+                  maxLength={MAX_FJ_RESPONSE_LENGTH}
+                  className="fj-masked-input wide"
+                  aria-label="Edit player response"
+                  placeholder="Enter player's response…"
+                  value={revealResponseDraft}
+                  onChange={(e) => setRevealResponseDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveRevealOverrides(activePlayer.id);
+                  }}
+                />
+              </div>
+            </div>
+            <div className="fj-host-drawer-row">
+              <span className="fj-host-drawer-name">Wager (hidden)</span>
+              <div className="fj-host-drawer-inputs">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  className="fj-masked-input"
+                  aria-label="Override player wager"
+                  placeholder={
+                    maxFinalJeopardyWager(startingScore) === 0 ? '$0 max' : 'Override ($)'
+                  }
+                  disabled={maxFinalJeopardyWager(startingScore) === 0}
+                  value={revealWagerDraft}
+                  onChange={(e) => setRevealWagerDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveRevealOverrides(activePlayer.id);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="fj-host-btn fj-host-btn-primary"
+                  onClick={() => handleSaveRevealOverrides(activePlayer.id)}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Subtle Host Controls tucked along the bottom edge */}
+        {activePlayer && activeEntry && (
+          <footer className="fj-host-bar">
+            <div className="fj-host-bar-group">
+              <button
+                type="button"
+                className="fj-host-btn"
+                onClick={() => {
+                  const next = setCorrectResponseShown(
+                    session,
+                    !session.correctResponseShown,
+                  );
+                  sessionRef.current = next;
+                  setSession(next);
+                }}
+              >
+                {session.correctResponseShown
+                  ? 'Hide Correct Response'
+                  : 'Reveal Correct Response'}
+              </button>
+              {!activeEntry.wagerRevealed && (
+                <button
+                  type="button"
+                  className={`fj-host-btn${drawerOpen ? ' active' : ''}`}
+                  onClick={() => {
+                    setDrawerOpen((open) => {
+                      const nextOpen = !open;
+                      if (nextOpen) {
+                        setRevealResponseDraft(activeEntry.response);
+                        setRevealWagerDraft('');
+                      }
+                      return nextOpen;
+                    });
+                  }}
+                >
+                  {activeEntry.response ? 'Edit / Override' : '+ Type Response / Override'}
+                </button>
+              )}
+              {activeEntry.verdict && !activeEntry.wagerRevealed && (
+                <button
+                  type="button"
+                  className="fj-host-btn"
+                  onClick={() => handleClearVerdict(activePlayer.id)}
+                >
+                  Change Ruling
+                </button>
+              )}
+            </div>
+
+            <div className="fj-host-bar-group">
               {!activeEntry.verdict && (
                 <>
-                  <div className="fj-wager-card hidden">
-                    <span className="fj-wager-card-label">WAGER</span>
-                    <span className="fj-wager-card-value">HIDDEN</span>
-                  </div>
-                  <div className="fj-judge-actions">
-                    <button
-                      type="button"
-                      className="btn success large"
-                      onClick={() => handleJudge(activePlayer.id, 'correct')}
-                    >
-                      ✓ Correct
-                    </button>
-                    <button
-                      type="button"
-                      className="btn danger large"
-                      onClick={() => handleJudge(activePlayer.id, 'incorrect')}
-                    >
-                      ✗ Incorrect
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="fj-host-btn fj-host-btn-success"
+                    onClick={() => handleJudge(activePlayer.id, 'correct')}
+                  >
+                    ✓ Correct
+                  </button>
+                  <button
+                    type="button"
+                    className="fj-host-btn fj-host-btn-danger"
+                    onClick={() => handleJudge(activePlayer.id, 'incorrect')}
+                  >
+                    ✗ Incorrect
+                  </button>
                 </>
               )}
 
               {activeEntry.verdict && !activeEntry.wagerRevealed && (
-                <>
-                  {overridingWagerId === activePlayer.id ? (
-                    <div className="fj-wager-card editing">
-                      <span className="fj-wager-card-label">
-                        OVERRIDE WAGER (max {formatScore(maxFinalJeopardyWager(startingScore))})
-                      </span>
-                      <div className="fj-override-editor">
-                        <input
-                          type="number"
-                          min={0}
-                          max={maxFinalJeopardyWager(startingScore)}
-                          step={1}
-                          value={
-                            maxFinalJeopardyWager(startingScore) === 0
-                              ? '0'
-                              : overrideWagerInput
-                          }
-                          disabled={maxFinalJeopardyWager(startingScore) === 0}
-                          onChange={(e) => setOverrideWagerInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveWagerOverride(activePlayer.id);
-                          }}
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          className="btn small primary"
-                          onClick={() => handleSaveWagerOverride(activePlayer.id)}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className="btn small"
-                          onClick={() => setOverridingWagerId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="fj-wager-card ready">
-                      <span className="fj-wager-card-label">WAGER</span>
-                      <span className="fj-wager-card-value">$ ???</span>
-                    </div>
-                  )}
-
-                  <div className="fj-judge-actions">
-                    <button
-                      type="button"
-                      className="btn primary large"
-                      onClick={() => handleRevealWager(activePlayer.id)}
-                    >
-                      Reveal Wager
-                    </button>
-                    <button
-                      type="button"
-                      className="btn small"
-                      onClick={() => handleClearVerdict(activePlayer.id)}
-                    >
-                      Change ruling
-                    </button>
-                    <button
-                      type="button"
-                      className="btn small"
-                      onClick={() => {
-                        setOverridingWagerId(activePlayer.id);
-                        setOverrideWagerInput(String(activeEntry.wager ?? 0));
-                      }}
-                    >
-                      Override wager
-                    </button>
-                  </div>
-                </>
+                <button
+                  type="button"
+                  className="fj-host-btn fj-host-btn-primary"
+                  onClick={() => handleRevealWager(activePlayer.id)}
+                >
+                  Reveal Wager
+                </button>
               )}
 
-              {activeEntry.wagerRevealed && activeEntry.verdict && (
-                <>
-                  <div className={`fj-wager-card revealed ${activeEntry.verdict}`}>
-                    <span className="fj-wager-card-label">WAGER REVEALED</span>
-                    <span className="fj-wager-card-value">
-                      {activeEntry.verdict === 'correct'
-                        ? `+${formatScore(wagerAmount)}`
-                        : `−${formatScore(wagerAmount)}`}
-                    </span>
-                  </div>
-
-                  <div className="fj-judge-actions">
-                    <button
-                      type="button"
-                      className="btn primary large"
-                      onClick={handleGoToNextPlayer}
-                    >
-                      {allDone
-                        ? 'Show Final Scores 🏆'
-                        : `Next Player: ${nextPlayer?.name ?? ''} →`}
-                    </button>
-                  </div>
-                </>
+              {activeEntry.wagerRevealed && (
+                <button
+                  type="button"
+                  className="fj-host-btn fj-host-btn-primary"
+                  onClick={handleGoToNextPlayer}
+                >
+                  {allDone
+                    ? 'Show Final Scores 🏆'
+                    : `Next Player: ${nextPlayer?.name ?? ''} →`}
+                </button>
               )}
             </div>
-          </div>
+          </footer>
         )}
       </div>
     );
   }
 
-  // ==================== STEP 5: DONE (FINAL SCORES) ====================
+  // ==================== PHASE 4: FINAL SCORES ====================
   const ranked = [...players].sort((a, b) => b.score - a.score);
   return (
-    <div className="clue-overlay fj-overlay" role="dialog" aria-modal="true">
-      <button type="button" className="clue-close" onClick={onClose} aria-label="Close">
+    <div className="clue-overlay fj-overlay fj-tv-shell" role="dialog" aria-modal="true">
+      <button type="button" className="fj-exit-btn" onClick={onClose} aria-label="Close">
         ×
       </button>
-      <div className="dd-panel fj-panel">
-        <p className="dd-badge">FINAL SCORES</p>
+      <main className="dd-panel fj-panel">
+        <p className="fj-tv-kicker">FINAL SCORES</p>
         <h2 className="dd-heading">Congratulations!</h2>
 
         {session.correctResponse && (
@@ -1445,15 +1393,24 @@ export function FinalJeopardyView({
             );
           })}
         </ol>
-        <div className="dd-wager-actions">
-          <button type="button" className="btn" onClick={onClose}>
-            Back to board
+      </main>
+
+      <footer className="fj-host-bar">
+        <div className="fj-host-bar-group">
+          <button type="button" className="fj-host-btn" onClick={onClose}>
+            Back to Board
           </button>
-          <button type="button" className="btn primary" onClick={onDoneToSetup}>
+        </div>
+        <div className="fj-host-bar-group">
+          <button
+            type="button"
+            className="fj-host-btn fj-host-btn-primary"
+            onClick={onDoneToSetup}
+          >
             Return to Setup
           </button>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
