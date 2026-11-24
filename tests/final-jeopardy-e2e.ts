@@ -48,6 +48,35 @@ async function runTest() {
     await hostPage.getByRole('button', { name: 'Load demo game' }).click();
     await sleep(200);
 
+    // Verify custom local music file upload (IndexedDB) + clear in Setup
+    const tinyWav = Buffer.from([
+      0x52, 0x49, 0x46, 0x46, 0x2c, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
+      0x66, 0x6d, 0x74, 0x20, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+      0x40, 0x1f, 0x00, 0x00, 0x40, 0x1f, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00,
+      0x64, 0x61, 0x74, 0x61, 0x08, 0x00, 0x00, 0x00, 0x80, 0x80, 0x80, 0x80,
+      0x80, 0x80, 0x80, 0x80,
+    ]);
+    await hostPage
+      .locator('input[aria-label="Choose custom Final Jeopardy music file"]')
+      .setInputFiles({
+        name: 'custom-think.wav',
+        mimeType: 'audio/wav',
+        buffer: tinyWav,
+      });
+    await hostPage.waitForSelector('.think-music-filename:has-text("custom-think.wav")', {
+      timeout: 5000,
+    });
+    await hostPage.reload();
+    await hostPage.waitForSelector('.think-music-filename:has-text("custom-think.wav")', {
+      timeout: 5000,
+    });
+    console.log('   ✓ Custom music file saved and persisted in IndexedDB across reload');
+
+    // Test Clear button reverts to default synthesized tune
+    await hostPage.locator('.think-music-setting button:has-text("Clear")').click();
+    await hostPage.waitForSelector('.think-music-default', { timeout: 5000 });
+    console.log('   ✓ Clear button reverted to default 60s synthesized tune');
+
     console.log('2. Starting buzzer lobby...');
     await hostPage.getByRole('button', { name: '📱 Start Buzzer Lobby' }).click();
     await hostPage.waitForSelector('.lobby-code-value', { timeout: 15000 });
@@ -177,10 +206,25 @@ async function runTest() {
     await hostPage.getByRole('button', { name: /Lock wagers/i }).click();
     await hostPage.waitForSelector('.fj-clue-stage');
 
-    // Both phones switch to Clue + Response screen
+    // Timer & music should auto-start immediately at 1:00 and tick down automatically!
+    await sleep(1300);
+    const autoClock = (await hostPage.textContent('.fj-timer-clock'))?.trim();
+    assert(
+      autoClock && autoClock !== '1:00' && autoClock.startsWith('0:5'),
+      `60s timer should auto-start and tick down into 0:5x, got ${autoClock}`,
+    );
+    console.log(`   ✓ 60s timer auto-started on clue reveal (clock: ${autoClock})`);
+
+    // Both phones switch to Clue + Response screen and show the synced countdown!
     await phone1Page.waitForSelector('.fj-phone-response-input', { timeout: 10000 });
     await phone2Page.waitForSelector('.fj-phone-response-input', { timeout: 10000 });
-    console.log('   ✓ Both phones received clue and response input');
+    await phone1Page.waitForSelector('.fj-phone-timer-clock', { timeout: 5000 });
+    const phone1Clock = (await phone1Page.textContent('.fj-phone-timer-clock'))?.trim();
+    assert(
+      phone1Clock && phone1Clock.startsWith('0:5'),
+      `Phone 1 should show synced countdown (0:5x), got ${phone1Clock}`,
+    );
+    console.log(`   ✓ Both phones received clue, response input, and synced timer (${phone1Clock})`);
 
     // Alice submits response
     await phone1Page.fill('.fj-phone-response-input', 'What is Paris?');
@@ -220,13 +264,15 @@ async function runTest() {
     );
     console.log('   ✓ Host clue screen shows checkmarks only (no response text leaked)');
 
-    // Test optional 30s Think Timer
-    await hostPage.getByRole('button', { name: /Start 30s Think Timer/i }).click();
-    await sleep(1200);
-    const clockText = await hostPage.textContent('.fj-timer-clock');
-    assert(clockText !== '0:30', `Timer should tick down from 0:30, got ${clockText}`);
+    // Test Pause / Music Off / Reset controls
     await hostPage.getByRole('button', { name: /Pause/i }).click();
-    console.log(`   ✓ Think timer ticked down (${clockText}) and paused cleanly`);
+    await hostPage.waitForSelector('button:has-text("Resume")', { timeout: 3000 });
+    await hostPage.getByRole('button', { name: /Music On/i }).click();
+    await hostPage.waitForSelector('button:has-text("Music Off")', { timeout: 3000 });
+    await hostPage.getByRole('button', { name: /Reset/i }).click();
+    const resetClock = (await hostPage.textContent('.fj-timer-clock'))?.trim();
+    assert(resetClock === '1:00', `Reset should restore timer to 1:00, got ${resetClock}`);
+    console.log('   ✓ Pause, Music On/Off, and Reset (to 1:00) controls verified');
 
     // Begin TV-style Reveal
     console.log('6. Running TV-style reveal (lowest score first)...');

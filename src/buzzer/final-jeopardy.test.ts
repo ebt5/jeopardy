@@ -6,18 +6,23 @@ import {
   clearPlayerVerdict,
   computeRevealOrder,
   createFinalJeopardySession,
+  DEFAULT_FJ_TIMER_SECONDS,
   formatScore,
+  formatTimer,
   getPhoneStateForPlayer,
   handlePhoneResponse,
   handlePhoneWager,
+  isSubmissionsClosed,
   judgePlayer,
   MAX_FJ_RESPONSE_LENGTH,
   nextUnrevealedIndex,
   revealPlayerWager,
+  setAllowLateResponses,
   setCorrectResponseShown,
   setHostResponse,
   setHostWager,
   setRevealIndex,
+  setTimerExpired,
   syncPlayersIntoSession,
 } from './final-jeopardy';
 import type { FinalJeopardy, Player } from '../types';
@@ -358,6 +363,93 @@ function runTests() {
     assertEquals(formatScore(0), '$0');
     assertEquals(formatScore(2400), '$2,400');
     assertEquals(formatScore(-400), '-$400');
+  });
+
+  test('60-second timer defaults and formatTimer formatting', () => {
+    assertEquals(DEFAULT_FJ_TIMER_SECONDS, 60);
+    assertEquals(formatTimer(60), '1:00');
+    assertEquals(formatTimer(59), '0:59');
+    assertEquals(formatTimer(5), '0:05');
+    assertEquals(formatTimer(0), '0:00');
+    assertEquals(formatTimer(-3), '0:00');
+  });
+
+  test('phone state syncs host countdown during clue phase and omits it outside clue phase', () => {
+    let session = createFinalJeopardySession(SAMPLE_FJ, SAMPLE_PLAYERS);
+    const wagerPhone = getPhoneStateForPlayer(session, SAMPLE_PLAYERS[0], {
+      secondsLeft: 60,
+      durationSeconds: 60,
+      running: false,
+    });
+    assertEquals(wagerPhone.timerSecondsLeft, undefined);
+    assertEquals(wagerPhone.submissionsClosed, undefined);
+
+    session = advanceToClue(session).session;
+    const cluePhone = getPhoneStateForPlayer(session, SAMPLE_PLAYERS[0], {
+      secondsLeft: 42,
+      durationSeconds: 60,
+      running: true,
+    });
+    assertEquals(cluePhone.timerSecondsLeft, 42);
+    assertEquals(cluePhone.timerDurationSeconds, 60);
+    assertEquals(cluePhone.timerRunning, true);
+    assertEquals(cluePhone.submissionsClosed, false);
+
+    // Reveal phase clears timer fields
+    session = advanceToReveal(session, SAMPLE_PLAYERS);
+    const revealPhone = getPhoneStateForPlayer(session, SAMPLE_PLAYERS[0], {
+      secondsLeft: 0,
+      durationSeconds: 60,
+      running: false,
+    });
+    assertEquals(revealPhone.timerSecondsLeft, undefined);
+    assertEquals(revealPhone.submissionsClosed, undefined);
+  });
+
+  test('timer expiration locks phone submissions and host can allow late answers or reset', () => {
+    let session = createFinalJeopardySession(SAMPLE_FJ, SAMPLE_PLAYERS);
+    session = advanceToClue(session).session;
+    assertEquals(isSubmissionsClosed(session), false);
+
+    // Timer hits 0 -> locks submissions
+    session = setTimerExpired(session, true);
+    assertEquals(isSubmissionsClosed(session), true);
+
+    const lockedPhone = getPhoneStateForPlayer(session, SAMPLE_PLAYERS[0], {
+      secondsLeft: 0,
+      durationSeconds: 60,
+      running: false,
+    });
+    assertEquals(lockedPhone.submissionsClosed, true);
+    assertEquals(lockedPhone.timerSecondsLeft, 0);
+
+    // Phone submission rejected while locked
+    const rejected = handlePhoneResponse(session, 'p1', 'What is Rome?');
+    assertEquals(typeof rejected.error, 'string');
+    assertEquals(rejected.session.entries.p1.responseLocked, false);
+
+    // Host clicks Allow Late Answers -> unlocks submissions
+    session = setAllowLateResponses(session, true);
+    assertEquals(isSubmissionsClosed(session), false);
+    const reopenedPhone = getPhoneStateForPlayer(session, SAMPLE_PLAYERS[0], {
+      secondsLeft: 0,
+      durationSeconds: 60,
+      running: false,
+    });
+    assertEquals(reopenedPhone.submissionsClosed, false);
+
+    // Late phone submission now succeeds
+    const accepted = handlePhoneResponse(session, 'p1', 'What is Rome?');
+    assertEquals(accepted.error, undefined);
+    session = accepted.session;
+    assertEquals(session.entries.p1.response, 'What is Rome?');
+    assertEquals(session.entries.p1.responseLocked, true);
+
+    // Host re-locks late answers -> blocks remaining players, reset timer unlocks them
+    session = setAllowLateResponses(session, false);
+    assertEquals(isSubmissionsClosed(session), true);
+    session = setTimerExpired(session, false);
+    assertEquals(isSubmissionsClosed(session), false);
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

@@ -50,6 +50,12 @@ export interface FinalJeopardyPhoneState {
   /** Populated once this player's wager is revealed during TV-style reveal */
   revealResult?: 'correct' | 'incorrect';
   newScore?: number;
+  /** Host countdown state synced to phones during the clue phase */
+  timerSecondsLeft?: number;
+  timerDurationSeconds?: number;
+  timerRunning?: boolean;
+  /** True when time expired and the host has not opened late submissions */
+  submissionsClosed?: boolean;
 }
 
 /** Messages from host to phone */

@@ -686,6 +686,72 @@ button {
   max-width: 720px;
 }
 
+.think-music-setting {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(2, 5, 90, 0.45);
+  border: 1px solid rgba(255, 215, 0, 0.22);
+  border-radius: 10px;
+}
+
+.think-music-setting.compact {
+  margin-top: 0;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  max-width: 680px;
+}
+
+.think-music-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.think-music-info {
+  font-size: 0.9rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.think-music-label {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.think-music-filename {
+  color: var(--gold);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.think-music-default {
+  color: var(--muted);
+}
+
+.think-music-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.think-music-hint {
+  margin-top: 0.45rem !important;
+  font-size: 0.82rem !important;
+}
+
+.think-music-error {
+  margin-top: 0.5rem !important;
+}
+
 .dd-splash {
   justify-content: center;
 }
