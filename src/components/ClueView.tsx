@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Clue, Player } from '../types';
 import { maxDailyDoubleWager } from '../types';
 import { PlayersBar } from './PlayersBar';
 import { playDailyDoubleSound } from '../sound';
+import { playHostBuzzInSound } from '../buzzer/sounds';
 
 type DdStep = 'splash' | 'pick' | 'wager' | 'clue';
 
@@ -43,6 +44,7 @@ export function ClueView({
   const [confirmedWager, setConfirmedWager] = useState<number | null>(null);
   const [isPeekingAnswer, setIsPeekingAnswer] = useState(false);
   const [ddGraded, setDdGraded] = useState(false);
+  const prevBuzzerWinnerRef = useRef<string | null>(null);
 
   const wagerPlayer = players.find((p) => p.id === wagerPlayerId) ?? null;
   const maxWager = wagerPlayer
@@ -53,6 +55,15 @@ export function ClueView({
   useEffect(() => {
     if (isDd) playDailyDoubleSound();
   }, [isDd]);
+
+  // Play host buzz-in sound when a winner is decided (not for Daily Doubles)
+  useEffect(() => {
+    const currentWinner = buzzerWinner?.name ?? null;
+    if (currentWinner && currentWinner !== prevBuzzerWinnerRef.current && !isDd) {
+      playHostBuzzInSound();
+    }
+    prevBuzzerWinnerRef.current = currentWinner;
+  }, [buzzerWinner, isDd]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -215,35 +226,46 @@ export function ClueView({
           <span>${isDd && confirmedWager != null ? confirmedWager : clue.value}</span>
         </span>
       </div>
-      {buzzerWinner && (
-        <div className="clue-buzzer-winner">
-          <span className="clue-buzzer-crown">👑</span>
-          <span className="clue-buzzer-name">{buzzerWinner.name}</span>
+
+      {/* Main content area with clue - flexes to fill available space */}
+      <div className="clue-content-area">
+        {/* Buzzer winner banner - positioned at top of content area */}
+        {buzzerWinner && (
+          <div className="clue-buzzer-winner-container">
+            <div className="clue-buzzer-winner">
+              <span className="clue-buzzer-label">BUZZED IN!</span>
+              <span className="clue-buzzer-name">{buzzerWinner.name}</span>
+            </div>
+          </div>
+        )}
+        {isDdCluePhase && wagerPlayer && !buzzerWinner && (
+          <div className="clue-buzzer-winner-container">
+            <div className="clue-buzzer-winner dd-answering">
+              <span className="clue-buzzer-label">ANSWERING</span>
+              <span className="clue-buzzer-name">{wagerPlayer.name}</span>
+              {ddGraded && <span className="dd-graded-badge">Graded</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Clue body - centered in remaining space */}
+        <div className="clue-body" onClick={() => !revealed && onReveal()}>
+          <p className="clue-label">{revealed ? 'QUESTION' : 'ANSWER'}</p>
+          <p className="clue-text">{revealed ? clue.question : clue.answer}</p>
+          {!revealed && !isDdCluePhase && (
+            <p className="clue-hint">
+              Use player +/− buttons to grade, or click/Space to reveal
+            </p>
+          )}
+          {!revealed && isDdCluePhase && !ddGraded && (
+            <p className="clue-hint">
+              Use {wagerPlayer?.name}'s +/− buttons to grade (wager: ${confirmedWager})
+            </p>
+          )}
+          {!revealed && isDdCluePhase && ddGraded && (
+            <p className="clue-hint">Click or press Space to reveal the question</p>
+          )}
         </div>
-      )}
-      {isDdCluePhase && wagerPlayer && !buzzerWinner && (
-        <div className="clue-buzzer-winner dd-answering">
-          <span className="clue-buzzer-crown">🎯</span>
-          <span className="clue-buzzer-name">{wagerPlayer.name}</span>
-          {ddGraded && <span className="dd-graded-badge">Graded</span>}
-        </div>
-      )}
-      <div className="clue-body" onClick={() => !revealed && onReveal()}>
-        <p className="clue-label">{revealed ? 'QUESTION' : 'ANSWER'}</p>
-        <p className="clue-text">{revealed ? clue.question : clue.answer}</p>
-        {!revealed && !isDdCluePhase && (
-          <p className="clue-hint">
-            Use player +/− buttons to grade, or click/Space to reveal
-          </p>
-        )}
-        {!revealed && isDdCluePhase && !ddGraded && (
-          <p className="clue-hint">
-            Use {wagerPlayer?.name}'s +/− buttons to grade (wager: ${confirmedWager})
-          </p>
-        )}
-        {!revealed && isDdCluePhase && ddGraded && (
-          <p className="clue-hint">Click or press Space to reveal the question</p>
-        )}
       </div>
 
       {/* Host peek: hold to see the correct question (answer to the clue) */}

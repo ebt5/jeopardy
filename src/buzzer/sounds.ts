@@ -12,7 +12,7 @@ function getAudioContext(): AudioContext | null {
   }
 }
 
-/** Sound for the winning buzzer - triumphant "ding-ding" */
+/** Sound for the winning buzzer on PHONE - triumphant "ding-ding" */
 export function playBuzzerWinnerSound(): void {
   const audioCtx = getAudioContext();
   if (!audioCtx) return;
@@ -39,6 +39,52 @@ export function playBuzzerWinnerSound(): void {
     osc.start(start);
     osc.stop(start + 0.5);
   });
+}
+
+/** Sound for HOST when someone buzzes in - punchy electronic "DING!" */
+export function playHostBuzzInSound(): void {
+  const audioCtx = getAudioContext();
+  if (!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+  const master = audioCtx.createGain();
+  master.gain.value = 0.5;
+  master.connect(audioCtx.destination);
+
+  // Main bell strike - bright and punchy
+  const bell = audioCtx.createOscillator();
+  const bellGain = audioCtx.createGain();
+  bell.type = 'sine';
+  bell.frequency.value = 1200; // High bright tone
+  bellGain.gain.setValueAtTime(0.8, now);
+  bellGain.gain.exponentialRampToValueAtTime(0.3, now + 0.05);
+  bellGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+  bell.connect(bellGain).connect(master);
+  bell.start(now);
+  bell.stop(now + 0.4);
+
+  // Harmonic overtone for richness
+  const overtone = audioCtx.createOscillator();
+  const overtoneGain = audioCtx.createGain();
+  overtone.type = 'sine';
+  overtone.frequency.value = 2400; // Octave above
+  overtoneGain.gain.setValueAtTime(0.3, now);
+  overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+  overtone.connect(overtoneGain).connect(master);
+  overtone.start(now);
+  overtone.stop(now + 0.25);
+
+  // Low "thump" for impact
+  const thump = audioCtx.createOscillator();
+  const thumpGain = audioCtx.createGain();
+  thump.type = 'sine';
+  thump.frequency.setValueAtTime(150, now);
+  thump.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+  thumpGain.gain.setValueAtTime(0.5, now);
+  thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+  thump.connect(thumpGain).connect(master);
+  thump.start(now);
+  thump.stop(now + 0.15);
 }
 
 /** Sound for buzzer armed - short "beep" */
