@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import qrcode from 'qrcode-generator';
 import type { UseBuzzerHostResult } from '../buzzer/useBuzzerHost';
 import type { Player } from '../types';
-import type { BuzzerPlayer } from '../buzzer/types';
 import './PlayerLobby.css';
 
 interface PlayerLobbyProps {
@@ -26,11 +25,9 @@ export function PlayerLobby({
     startRoom,
     stopRoom,
     kickPlayer,
-    linkPlayerToGame,
   } = buzzerHost;
 
   const [manualNameInput, setManualNameInput] = useState('');
-  const prevBuzzerPlayersRef = useRef<BuzzerPlayer[]>([]);
 
   const qrDataUrl = useMemo(() => {
     if (!roomCode) return null;
@@ -49,95 +46,6 @@ export function PlayerLobby({
   const buzzUrl = roomCode
     ? `${window.location.origin}${window.location.pathname}#/buzz?room=${roomCode}`
     : null;
-
-  const deviceToPlayerRef = useRef<Map<string, string>>(new Map());
-
-  const syncBuzzerPlayersToGamePlayers = useCallback(
-    (newBuzzerPlayers: BuzzerPlayer[]) => {
-      const prevBuzzerPlayers = prevBuzzerPlayersRef.current;
-      prevBuzzerPlayersRef.current = newBuzzerPlayers;
-
-      let updated = [...players];
-      let changed = false;
-
-      for (const bp of newBuzzerPlayers) {
-        const existingByPeerId = updated.find((p) => p.buzzerPeerId === bp.peerId);
-        if (existingByPeerId) continue;
-
-        let matchedPlayer: Player | undefined;
-        
-        if (bp.deviceId) {
-          const knownPlayerId = deviceToPlayerRef.current.get(bp.deviceId);
-          if (knownPlayerId) {
-            matchedPlayer = updated.find(
-              (p) => p.id === knownPlayerId && !p.buzzerPeerId
-            );
-          }
-        }
-        
-        if (!matchedPlayer) {
-          matchedPlayer = updated.find(
-            (p) => p.name.toLowerCase() === bp.name.toLowerCase() && !p.buzzerPeerId
-          );
-        }
-
-        if (matchedPlayer) {
-          updated = updated.map((p) =>
-            p.id === matchedPlayer!.id
-              ? { ...p, buzzerPeerId: bp.peerId, isManual: false }
-              : p
-          );
-          linkPlayerToGame(bp.peerId, matchedPlayer.id);
-          if (bp.deviceId) {
-            deviceToPlayerRef.current.set(bp.deviceId, matchedPlayer.id);
-          }
-          changed = true;
-        } else {
-          const wasInPrev = prevBuzzerPlayers.some((prev) => prev.peerId === bp.peerId);
-          if (!wasInPrev) {
-            const newPlayerId = `p${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-            const newPlayer: Player = {
-              id: newPlayerId,
-              name: bp.name,
-              score: 0,
-              buzzerPeerId: bp.peerId,
-              isManual: false,
-            };
-            updated.push(newPlayer);
-            linkPlayerToGame(bp.peerId, newPlayerId);
-            if (bp.deviceId) {
-              deviceToPlayerRef.current.set(bp.deviceId, newPlayerId);
-            }
-            changed = true;
-          }
-        }
-      }
-
-      for (const prevBp of prevBuzzerPlayers) {
-        const stillConnected = newBuzzerPlayers.some((bp) => bp.peerId === prevBp.peerId);
-        if (!stillConnected) {
-          const linkedPlayer = updated.find((p) => p.buzzerPeerId === prevBp.peerId);
-          if (linkedPlayer) {
-            updated = updated.map((p) =>
-              p.id === linkedPlayer.id ? { ...p, buzzerPeerId: undefined } : p
-            );
-            changed = true;
-          }
-        }
-      }
-
-      if (changed) {
-        onPlayersChange(updated);
-      }
-    },
-    [players, onPlayersChange, linkPlayerToGame]
-  );
-
-  useEffect(() => {
-    if (roomCode) {
-      syncBuzzerPlayersToGamePlayers(buzzerPlayers);
-    }
-  }, [buzzerPlayers, roomCode, syncBuzzerPlayersToGamePlayers]);
 
   const addManualPlayer = () => {
     const name = manualNameInput.trim();

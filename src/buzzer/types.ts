@@ -28,6 +28,30 @@ export interface BuzzerAnswerCallbacks {
   onWrong: () => void;
 }
 
+/** Final Jeopardy phase communicated from host to phones */
+export type FinalJeopardyPhase = 'wager' | 'clue' | 'reveal' | 'done';
+
+/** Personalized Final Jeopardy state sent by host to a single player's phone.
+ *  Never contains other players' wagers or responses. */
+export interface FinalJeopardyPhoneState {
+  phase: FinalJeopardyPhase;
+  category: string;
+  /** Populated only once the host reveals the clue (phase !== 'wager') */
+  clue?: string;
+  playerName: string;
+  score: number;
+  maxWager: number;
+  wagerLocked: boolean;
+  /** Only this player's own locked wager */
+  wager?: number;
+  responseLocked: boolean;
+  /** Only this player's own locked response */
+  response?: string;
+  /** Populated once this player's wager is revealed during TV-style reveal */
+  revealResult?: 'correct' | 'incorrect';
+  newScore?: number;
+}
+
 /** Messages from host to phone */
 export type HostMessage =
   | { type: 'sync-request'; hostSendTime: number }
@@ -36,14 +60,18 @@ export type HostMessage =
   | { type: 'player-list'; players: BuzzerPlayer[] }
   | { type: 'buzz-result'; result: BuzzerRoundResult }
   | { type: 'your-status'; status: 'winner' | 'runner-up' | 'locked-out'; rank?: number }
-  | { type: 'kick'; reason: string };
+  | { type: 'kick'; reason: string }
+  | { type: 'fj-state'; state: FinalJeopardyPhoneState | null }
+  | { type: 'fj-error'; message: string };
 
 /** Messages from phone to host */
 export type PhoneMessage =
   | { type: 'join'; name: string; gamePlayerId?: string; deviceId?: string }
   | { type: 'sync-ping'; phoneSendTime: number }
   | { type: 'sync-pong'; hostSendTime: number; phoneReceiveTime: number }
-  | { type: 'buzz'; localTimestamp: number; correctedTimestamp: number };
+  | { type: 'buzz'; localTimestamp: number; correctedTimestamp: number }
+  | { type: 'fj-wager'; wager: number }
+  | { type: 'fj-response'; response: string };
 
 /** Clock sync sample from NTP-style exchange */
 export interface ClockSample {

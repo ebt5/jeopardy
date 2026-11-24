@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { AppMode, GameConfig } from './types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AppMode, GameConfig, Player } from './types';
+import type { BuzzerPlayer } from './buzzer/types';
 import { clearSession, loadSession, type Session } from './auth';
 import { loadGameConfig, presetConfigFromUrl, saveGameConfig } from './storage';
 import { Board } from './components/Board';
@@ -41,6 +42,115 @@ export default function App() {
   const [buzzerControls, setBuzzerControls] = useState<BuzzerControls | null>(null);
 
   const buzzerHost = useBuzzerHost();
+  const prevBuzzerPlayersRef = useRef<BuzzerPlayer[]>([]);
+  const deviceToPlayerRef = useRef<Map<string, string>>(new Map());
+  const playersRef = useRef<Player[]>(config.players);
+  playersRef.current = config.players;
+
+  // Keep phone connections linked to game players across Setup, Play, and Final Jeopardy
+  useEffect(() => {
+    if (!buzzerHost.roomCode) {
+      if (prevBuzzerPlayersRef.current.length > 0) {
+        prevBuzzerPlayersRef.current = [];
+        setConfig((prev) => {
+          const hadLinked = prev.players.some((p) => p.buzzerPeerId !== undefined);
+          if (!hadLinked) return prev;
+          return {
+            ...prev,
+            players: prev.players.map((p) => ({ ...p, buzzerPeerId: undefined })),
+          };
+        });
+      }
+      return;
+    }
+
+    const newBuzzerPlayers = buzzerHost.players;
+    const prevBuzzerPlayers = prevBuzzerPlayersRef.current;
+    prevBuzzerPlayersRef.current = newBuzzerPlayers;
+
+    let updated = [...playersRef.current];
+    let changed = false;
+    const toLink: Array<{ peerId: string; gamePlayerId: string }> = [];
+
+    for (const bp of newBuzzerPlayers) {
+      const existingByPeerId = updated.find((p) => p.buzzerPeerId === bp.peerId);
+      if (existingByPeerId) {
+        if (bp.deviceId) {
+          deviceToPlayerRef.current.set(bp.deviceId, existingByPeerId.id);
+        }
+        if (bp.gamePlayerId !== existingByPeerId.id) {
+          toLink.push({ peerId: bp.peerId, gamePlayerId: existingByPeerId.id });
+        }
+        continue;
+      }
+
+      let matchedPlayer: Player | undefined;
+
+      if (bp.deviceId) {
+        const knownPlayerId = deviceToPlayerRef.current.get(bp.deviceId);
+        if (knownPlayerId) {
+          matchedPlayer = updated.find((p) => p.id === knownPlayerId);
+        }
+      }
+
+      if (!matchedPlayer) {
+        matchedPlayer = updated.find(
+          (p) => p.name.toLowerCase() === bp.name.toLowerCase() && !p.buzzerPeerId,
+        );
+      }
+
+      if (matchedPlayer) {
+        updated = updated.map((p) =>
+          p.id === matchedPlayer!.id
+            ? { ...p, buzzerPeerId: bp.peerId, isManual: false }
+            : p,
+        );
+        toLink.push({ peerId: bp.peerId, gamePlayerId: matchedPlayer.id });
+        if (bp.deviceId) {
+          deviceToPlayerRef.current.set(bp.deviceId, matchedPlayer.id);
+        }
+        changed = true;
+      } else {
+        const wasInPrev = prevBuzzerPlayers.some((prev) => prev.peerId === bp.peerId);
+        if (!wasInPrev) {
+          const newPlayerId = `p${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const newPlayer: Player = {
+            id: newPlayerId,
+            name: bp.name,
+            score: 0,
+            buzzerPeerId: bp.peerId,
+            isManual: false,
+          };
+          updated.push(newPlayer);
+          toLink.push({ peerId: bp.peerId, gamePlayerId: newPlayerId });
+          if (bp.deviceId) {
+            deviceToPlayerRef.current.set(bp.deviceId, newPlayerId);
+          }
+          changed = true;
+        }
+      }
+    }
+
+    for (const prevBp of prevBuzzerPlayers) {
+      const stillConnected = newBuzzerPlayers.some((bp) => bp.peerId === prevBp.peerId);
+      if (!stillConnected) {
+        const linkedPlayer = updated.find((p) => p.buzzerPeerId === prevBp.peerId);
+        if (linkedPlayer) {
+          updated = updated.map((p) =>
+            p.id === linkedPlayer.id ? { ...p, buzzerPeerId: undefined } : p,
+          );
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      setConfig((prev) => ({ ...prev, players: updated }));
+    }
+    for (const { peerId, gamePlayerId } of toLink) {
+      buzzerHost.linkPlayerToGame(peerId, gamePlayerId);
+    }
+  }, [buzzerHost.players, buzzerHost.roomCode, buzzerHost.linkPlayerToGame]);
 
   useEffect(() => {
     saveGameConfig(config);
@@ -163,6 +273,9 @@ export default function App() {
     }
     setActive(null);
     setRevealed(false);
+    setBuzzerWinner(null);
+    setBuzzerControls(null);
+    buzzerHost.reset();
     setShowFinal(true);
   };
 
@@ -226,7 +339,6 @@ export default function App() {
           <aside className="play-buzzer-sidebar">
             <BuzzerHost
               players={config.players}
-              onPlayersChange={(players) => setConfig((prev) => ({ ...prev, players }))}
               isClueOpen={active !== null}
               isDailyDouble={activeClue?.dailyDouble === true}
               buzzerHost={buzzerHost}
@@ -261,6 +373,7 @@ export default function App() {
             setShowFinal(false);
             setMode('setup');
           }}
+          buzzerHost={buzzerHost}
         />
       )}
     </div>

@@ -43,6 +43,12 @@ interface ConnectionState {
   syncSamples: number;
 }
 
+export type PhoneMessageListener = (
+  peerId: string,
+  player: BuzzerPlayer,
+  msg: PhoneMessage,
+) => void;
+
 export interface UseBuzzerHostResult {
   roomCode: string | null;
   state: BuzzerState;
@@ -58,6 +64,9 @@ export interface UseBuzzerHostResult {
   rearm: () => void;
   kickPlayer: (peerId: string) => void;
   linkPlayerToGame: (peerId: string, gamePlayerId: string) => void;
+  sendToPlayer: (peerId: string, msg: HostMessage) => void;
+  broadcastMessage: (msg: HostMessage) => void;
+  subscribePhoneMessages: (listener: PhoneMessageListener) => () => void;
 }
 
 export function useBuzzerHost(): UseBuzzerHostResult {
@@ -77,6 +86,14 @@ export function useBuzzerHost(): UseBuzzerHostResult {
   const syncIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const stateRef = useRef<BuzzerState>('waiting');
   const lockedOutIdsRef = useRef<Set<string>>(new Set());
+  const phoneMessageListenersRef = useRef<Set<PhoneMessageListener>>(new Set());
+
+  const subscribePhoneMessages = useCallback((listener: PhoneMessageListener) => {
+    phoneMessageListenersRef.current.add(listener);
+    return () => {
+      phoneMessageListenersRef.current.delete(listener);
+    };
+  }, []);
 
   const broadcast = useCallback((msg: HostMessage, exclude?: string) => {
     for (const [peerId, { conn }] of connectionsRef.current) {
@@ -139,6 +156,26 @@ export function useBuzzerHost(): UseBuzzerHostResult {
 
       switch (msg.type) {
         case 'join': {
+          // If the same device reconnected before the old WebRTC channel timed out,
+          // close the stale connection so reconnects mid-game/mid-Final are instant.
+          if (msg.deviceId) {
+            for (const [oldPeerId, oldState] of connectionsRef.current) {
+              if (oldPeerId !== peerId && oldState.player?.deviceId === msg.deviceId) {
+                const oldInterval = syncIntervalsRef.current.get(oldPeerId);
+                if (oldInterval) {
+                  clearInterval(oldInterval);
+                  syncIntervalsRef.current.delete(oldPeerId);
+                }
+                connectionsRef.current.delete(oldPeerId);
+                try {
+                  oldState.conn.close();
+                } catch {
+                  /* ignore close errors on stale connection */
+                }
+              }
+            }
+          }
+
           connState.player = {
             peerId,
             name: msg.name.slice(0, 20).trim() || 'Player',
@@ -195,6 +232,15 @@ export function useBuzzerHost(): UseBuzzerHostResult {
             collectionTimerRef.current = setTimeout(() => {
               resolveBuzzes();
             }, BUZZ_COLLECTION_WINDOW_MS);
+          }
+          break;
+        }
+
+        case 'fj-wager':
+        case 'fj-response': {
+          if (!connState.player) return;
+          for (const listener of phoneMessageListenersRef.current) {
+            listener(peerId, connState.player, msg);
           }
           break;
         }
@@ -422,7 +468,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
 
   const linkPlayerToGame = useCallback((peerId: string, gamePlayerId: string) => {
     const connState = connectionsRef.current.get(peerId);
-    if (connState?.player) {
+    if (connState?.player && connState.player.gamePlayerId !== gamePlayerId) {
       connState.player.gamePlayerId = gamePlayerId;
       updatePlayerList();
     }
@@ -450,5 +496,8 @@ export function useBuzzerHost(): UseBuzzerHostResult {
     rearm,
     kickPlayer,
     linkPlayerToGame,
+    sendToPlayer: sendTo,
+    broadcastMessage: broadcast,
+    subscribePhoneMessages,
   };
 }

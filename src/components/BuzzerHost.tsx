@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import qrcode from 'qrcode-generator';
 import type { UseBuzzerHostResult } from '../buzzer/useBuzzerHost';
 import type { Player } from '../types';
-import type { BuzzerPlayer } from '../buzzer/types';
 import './BuzzerHost.css';
 
 interface BuzzerHostProps {
   players: Player[];
-  onPlayersChange?: (players: Player[]) => void;
   isClueOpen: boolean;
   isDailyDouble?: boolean;
   buzzerHost: UseBuzzerHostResult;
@@ -21,7 +19,6 @@ interface BuzzerHostProps {
 
 export function BuzzerHost({
   players,
-  onPlayersChange,
   isClueOpen,
   isDailyDouble = false,
   buzzerHost,
@@ -42,103 +39,10 @@ export function BuzzerHost({
     reset,
     rearm,
     kickPlayer,
-    linkPlayerToGame,
   } = buzzerHost;
 
   const prevIsClueOpenRef = useRef(isClueOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const prevBuzzerPlayersRef = useRef<BuzzerPlayer[]>([]);
-  const deviceToPlayerRef = useRef<Map<string, string>>(new Map());
-
-  // Mid-game player sync: link new/reconnecting phones to game players
-  const syncBuzzerPlayersToGamePlayers = useCallback(
-    (newBuzzerPlayers: BuzzerPlayer[]) => {
-      if (!onPlayersChange) return;
-      
-      const prevBuzzerPlayers = prevBuzzerPlayersRef.current;
-      prevBuzzerPlayersRef.current = newBuzzerPlayers;
-
-      let updated = [...players];
-      let changed = false;
-
-      for (const bp of newBuzzerPlayers) {
-        const existingByPeerId = updated.find((p) => p.buzzerPeerId === bp.peerId);
-        if (existingByPeerId) continue;
-
-        let matchedPlayer: Player | undefined;
-        
-        if (bp.deviceId) {
-          const knownPlayerId = deviceToPlayerRef.current.get(bp.deviceId);
-          if (knownPlayerId) {
-            matchedPlayer = updated.find(
-              (p) => p.id === knownPlayerId && !p.buzzerPeerId
-            );
-          }
-        }
-        
-        if (!matchedPlayer) {
-          matchedPlayer = updated.find(
-            (p) => p.name.toLowerCase() === bp.name.toLowerCase() && !p.buzzerPeerId
-          );
-        }
-
-        if (matchedPlayer) {
-          updated = updated.map((p) =>
-            p.id === matchedPlayer!.id
-              ? { ...p, buzzerPeerId: bp.peerId, isManual: false }
-              : p
-          );
-          linkPlayerToGame(bp.peerId, matchedPlayer.id);
-          if (bp.deviceId) {
-            deviceToPlayerRef.current.set(bp.deviceId, matchedPlayer.id);
-          }
-          changed = true;
-        } else {
-          const wasInPrev = prevBuzzerPlayers.some((prev) => prev.peerId === bp.peerId);
-          if (!wasInPrev) {
-            const newPlayerId = `p${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-            const newPlayer: Player = {
-              id: newPlayerId,
-              name: bp.name,
-              score: 0,
-              buzzerPeerId: bp.peerId,
-              isManual: false,
-            };
-            updated.push(newPlayer);
-            linkPlayerToGame(bp.peerId, newPlayerId);
-            if (bp.deviceId) {
-              deviceToPlayerRef.current.set(bp.deviceId, newPlayerId);
-            }
-            changed = true;
-          }
-        }
-      }
-
-      for (const prevBp of prevBuzzerPlayers) {
-        const stillConnected = newBuzzerPlayers.some((bp) => bp.peerId === prevBp.peerId);
-        if (!stillConnected) {
-          const linkedPlayer = updated.find((p) => p.buzzerPeerId === prevBp.peerId);
-          if (linkedPlayer) {
-            updated = updated.map((p) =>
-              p.id === linkedPlayer.id ? { ...p, buzzerPeerId: undefined } : p
-            );
-            changed = true;
-          }
-        }
-      }
-
-      if (changed) {
-        onPlayersChange(updated);
-      }
-    },
-    [players, onPlayersChange, linkPlayerToGame]
-  );
-
-  useEffect(() => {
-    if (roomCode && onPlayersChange) {
-      syncBuzzerPlayersToGamePlayers(buzzerPlayers);
-    }
-  }, [buzzerPlayers, roomCode, syncBuzzerPlayersToGamePlayers, onPlayersChange]);
 
   // Auto-arm when clue opens (but not for Daily Doubles)
   useEffect(() => {
