@@ -5,11 +5,24 @@
   padding: 1rem 1.25rem;
 }
 
+.buzzer-host-panel.collapsed {
+  padding: 0.75rem 1rem;
+}
+
 .buzzer-host-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.75rem;
+}
+
+.buzzer-host-panel.collapsed .buzzer-host-header {
+  margin-bottom: 0.5rem;
+}
+
+.buzzer-host-header-actions {
+  display: flex;
+  gap: 0.4rem;
 }
 
 .buzzer-host-title {
@@ -35,6 +48,35 @@
   font-size: 0.9rem;
 }
 
+/* Join section */
+.buzzer-host-join-section {
+  background: rgba(2, 5, 90, 0.4);
+  border: 1px dashed rgba(255, 215, 0, 0.3);
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.buzzer-host-join-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.buzzer-host-join-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.buzzer-host-join-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: #a8b4d8;
+  text-align: center;
+}
+
 .buzzer-host-room {
   display: flex;
   flex-wrap: wrap;
@@ -46,35 +88,36 @@
 .buzzer-host-code {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .buzzer-host-code-label {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: #a8b4d8;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
 .buzzer-host-code-value {
-  font-size: 2rem;
+  font-size: 1.6rem;
   font-weight: 900;
   color: #ffd700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.15em;
   font-family: 'Georgia', 'Times New Roman', serif;
 }
 
 .buzzer-host-qr {
-  width: 80px;
-  height: 80px;
-  border-radius: 8px;
+  width: 70px;
+  height: 70px;
+  border-radius: 6px;
   background: #fff;
-  padding: 4px;
+  padding: 3px;
+  flex-shrink: 0;
 }
 
 .buzzer-host-link {
   color: #58a6ff;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-decoration: none;
 }
 
@@ -159,7 +202,25 @@
   border: 1px solid rgba(255, 215, 0, 0.2);
   border-radius: 8px;
   padding: 0.35rem 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+
+.buzzer-host-player.connected {
+  border-color: rgba(46, 204, 113, 0.4);
+}
+
+.buzzer-host-player.disconnected {
+  opacity: 0.65;
+  border-color: rgba(168, 180, 216, 0.3);
+}
+
+.buzzer-host-player.manual {
+  border-color: rgba(241, 196, 15, 0.4);
+}
+
+.buzzer-host-player.unlinked {
+  border-color: rgba(88, 166, 255, 0.5);
+  background: rgba(88, 166, 255, 0.1);
 }
 
 .buzzer-host-player.locked-out {
@@ -167,15 +228,35 @@
   border-color: rgba(231, 76, 60, 0.4);
 }
 
+.buzzer-host-player-status {
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
 .buzzer-host-player-name {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .buzzer-host-player-link {
   color: #58a6ff;
   font-size: 0.8rem;
+}
+
+.buzzer-host-player-new {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #58a6ff;
+  background: rgba(88, 166, 255, 0.2);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  margin-left: 0.3rem;
 }
 
 .buzzer-host-locked-badge {
@@ -293,4 +374,16 @@
   background: rgba(10, 26, 74, 0.5);
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
+}
+
+/* Collapsed view */
+.buzzer-host-collapsed-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.buzzer-host-collapsed-count {
+  color: #a8b4d8;
+  font-size: 0.85rem;
 }

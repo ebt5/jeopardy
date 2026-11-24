@@ -144,8 +144,8 @@ export default function App() {
     buzzerHost.reset();
   }, [buzzerHost]);
 
-  const handlePlayerWrong = useCallback((playerId: string) => {
-    if (buzzerWinner?.gamePlayerId === playerId && buzzerControls?.rearmAfterWrong) {
+  const handlePlayerWrong = useCallback((_playerId: string) => {
+    if (buzzerWinner && buzzerControls?.rearmAfterWrong) {
       buzzerControls.rearmAfterWrong();
     }
     setBuzzerWinner(null);
@@ -226,10 +226,12 @@ export default function App() {
           <aside className="play-buzzer-sidebar">
             <BuzzerHost
               players={config.players}
+              onPlayersChange={(players) => setConfig((prev) => ({ ...prev, players }))}
               isClueOpen={active !== null}
               isDailyDouble={activeClue?.dailyDouble === true}
               buzzerHost={buzzerHost}
               onBuzzerResult={handleBuzzerResult}
+              isCollapsible
             />
           </aside>
         )}
