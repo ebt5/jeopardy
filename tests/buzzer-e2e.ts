@@ -149,6 +149,24 @@ async function runTest() {
     if (hasWinner) {
       const winnerName = await hostPage.textContent('.clue-buzzer-name');
       console.log(`   ✓ Winner shown: ${winnerName}`);
+      
+      // Verify "BUZZED IN!" label is shown
+      const buzzLabel = await hostPage.locator('.clue-buzzer-label').textContent();
+      if (buzzLabel?.includes('BUZZED IN')) {
+        console.log('   ✓ "BUZZED IN!" label displayed');
+      }
+      
+      // Verify winner doesn't overlap with clue text (layout check)
+      const winnerBox = await hostPage.locator('.clue-buzzer-winner-container').boundingBox();
+      const clueBox = await hostPage.locator('.clue-body').boundingBox();
+      if (winnerBox && clueBox) {
+        const noOverlap = winnerBox.y + winnerBox.height <= clueBox.y + 10; // 10px tolerance
+        if (noOverlap) {
+          console.log('   ✓ Winner banner does not overlap clue text');
+        } else {
+          console.log('   ⚠ Winner banner may overlap clue text');
+        }
+      }
     }
 
     // === Test grading via per-player buttons before reveal ===
