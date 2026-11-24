@@ -1,7 +1,9 @@
 import { chromium } from 'playwright';
 import * as fs from 'fs';
+import * as path from 'path';
 
 const BASE_URL = 'http://localhost:5173/jeopardy/';
+const SCREENSHOT_DIR = process.env.FJ_SCREENSHOT_DIR || '';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -19,6 +21,34 @@ async function launchBrowser() {
     return chromium.launch({ headless: true, executablePath: systemChrome });
   }
   return chromium.launch({ headless: true });
+}
+
+async function maybeScreenshot(page: import('playwright').Page, filename: string) {
+  if (!SCREENSHOT_DIR) return;
+  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  const target = path.join(SCREENSHOT_DIR, filename);
+  await page.screenshot({ path: target });
+  console.log(`   📸 Saved screenshot: ${target}`);
+}
+
+async function assertHostDomDoesNotContain(
+  hostPage: import('playwright').Page,
+  forbidden: string[],
+  context: string,
+) {
+  const overlay = hostPage.locator('.fj-overlay');
+  const text = (await overlay.textContent()) ?? '';
+  const html = await overlay.innerHTML();
+  for (const secret of forbidden) {
+    assert(
+      !text.includes(secret),
+      `${context}: host overlay textContent leaked "${secret}"`,
+    );
+    assert(
+      !html.includes(secret),
+      `${context}: host overlay innerHTML leaked "${secret}"`,
+    );
+  }
 }
 
 async function runTest() {
@@ -161,7 +191,22 @@ async function runTest() {
 
     console.log('4. Starting Final Jeopardy...');
     await hostPage.getByRole('button', { name: 'Final Jeopardy' }).click();
-    await hostPage.waitForSelector('.fj-overlay');
+    await hostPage.waitForSelector('.fj-tv-wagers-stage');
+
+    // ThinkMusicSetting must NOT appear on the Final Jeopardy screen
+    assert(
+      (await hostPage.locator('.think-music-setting').count()) === 0,
+      'ThinkMusicSetting must not appear on Final Jeopardy screen',
+    );
+    assert(
+      !(await hostPage.locator('.fj-overlay').textContent())?.includes('Use your own music'),
+      'Final Jeopardy screen must not show custom music uploader UI',
+    );
+    // Host drawer must be collapsed by default
+    assert(
+      (await hostPage.locator('.fj-host-drawer').count()) === 0,
+      'Host override drawer should be collapsed by default',
+    );
 
     // Both phones should immediately switch to Final Jeopardy wager screen
     await phone1Page.waitForSelector('.fj-phone-wager-input', { timeout: 10000 });
@@ -189,24 +234,66 @@ async function runTest() {
     });
     console.log('   ✓ Bob (negative score) locked $0 wager');
 
-    // Verify host screen shows checkmarks ONLY (does NOT expose Alice's $600 wager)
-    await hostPage.getByRole('button', { name: 'Continue' }).click();
-    await hostPage.waitForSelector('.fj-wager-list');
-    const hostWagersText = await hostPage.textContent('.fj-wager-list');
-    assert(
-      !hostWagersText?.includes('600'),
-      'Host wager screen must not display phone-submitted wager amount',
+    // Wait briefly for host state update, then verify host screen shows neutral status ONLY
+    await hostPage.waitForFunction(
+      () => document.querySelectorAll('.fj-contestant-card.is-locked').length === 2,
+      undefined,
+      { timeout: 5000 },
     );
-    const lockedBadges = await hostPage.locator('.fj-check-badge').count();
-    assert(lockedBadges === 2, `Expected 2 locked badges, got ${lockedBadges}`);
-    console.log('   ✓ Host shows checkmarks only (no phone wager content leaked)');
+    await sleep(300);
+    await assertHostDomDoesNotContain(hostPage, ['600'], 'Wagering phase after phone lock');
+    await maybeScreenshot(hostPage, 'fj-host-wagering.png');
+    console.log('   ✓ Host wagering screen shows neutral status only (no wager amount in DOM)');
 
-    // Host enters manual wager for Charlie ($300) and advances to clue
-    await hostPage.fill('input[aria-label="Charlie wager"]', '300');
-    await hostPage.getByRole('button', { name: /Lock wagers/i }).click();
-    await hostPage.waitForSelector('.fj-clue-stage');
+    // Host opens collapsed drawer to enter manual wager for Charlie ($300) using masked input
+    await hostPage.getByRole('button', { name: /Enter \/ Override Wagers/i }).click();
+    await hostPage.waitForSelector('.fj-host-drawer');
 
-    // Timer & music should auto-start immediately at 1:00 and tick down automatically!
+    const aliceWagerInput = hostPage.locator('input[aria-label="Alice wager"]');
+    const charlieWagerInput = hostPage.locator('input[aria-label="Charlie wager"]');
+    assert(
+      (await aliceWagerInput.getAttribute('type')) === 'password',
+      'Host wager override input must be masked (type="password")',
+    );
+    assert(
+      (await aliceWagerInput.inputValue()) === '',
+      'Host wager override input must not pre-fill secret phone wager',
+    );
+    assert(
+      (await charlieWagerInput.getAttribute('type')) === 'password',
+      'Manual wager input must be masked (type="password")',
+    );
+    await assertHostDomDoesNotContain(hostPage, ['600'], 'Wagering drawer open');
+
+    await charlieWagerInput.fill('300');
+    await hostPage
+      .locator('.fj-host-drawer-row', { hasText: 'Charlie' })
+      .getByRole('button', { name: 'Lock' })
+      .click();
+    await hostPage.waitForFunction(
+      () => document.querySelectorAll('.fj-contestant-card.is-locked').length === 3,
+      undefined,
+      { timeout: 5000 },
+    );
+    assert(
+      (await charlieWagerInput.inputValue()) === '',
+      'Manual wager input must clear immediately after locking',
+    );
+    await assertHostDomDoesNotContain(hostPage, ['600', '300'], 'After locking manual wager');
+    console.log('   ✓ Host entered Charlie $300 via masked drawer input (cleared & hidden from DOM)');
+
+    // Advance to Clue & 60s Timer
+    await hostPage.getByRole('button', { name: /Lock Wagers & Reveal Clue/i }).click();
+    await hostPage.waitForSelector('.fj-tv-clue-stage');
+
+    // ThinkMusicSetting must NOT appear on Clue screen either, and wager amounts stay absent
+    assert(
+      (await hostPage.locator('.think-music-setting').count()) === 0,
+      'ThinkMusicSetting must not appear on Final Jeopardy clue screen',
+    );
+    await assertHostDomDoesNotContain(hostPage, ['600', '300'], 'Clue phase start');
+
+    // Timer & music should auto-start immediately at 1:00 and tick down automatically
     await sleep(1300);
     const autoClock = (await hostPage.textContent('.fj-timer-clock'))?.trim();
     assert(
@@ -215,7 +302,7 @@ async function runTest() {
     );
     console.log(`   ✓ 60s timer auto-started on clue reveal (clock: ${autoClock})`);
 
-    // Both phones switch to Clue + Response screen and show the synced countdown!
+    // Both phones switch to Clue + Response screen and show the synced countdown
     await phone1Page.waitForSelector('.fj-phone-response-input', { timeout: 10000 });
     await phone2Page.waitForSelector('.fj-phone-response-input', { timeout: 10000 });
     await phone1Page.waitForSelector('.fj-phone-timer-clock', { timeout: 5000 });
@@ -227,7 +314,7 @@ async function runTest() {
     console.log(`   ✓ Both phones received clue, response input, and synced timer (${phone1Clock})`);
 
     // Alice submits response
-    await phone1Page.fill('.fj-phone-response-input', 'What is Paris?');
+    await phone1Page.fill('.fj-phone-response-input', 'What is the Berlin Wall?');
     await phone1Page.getByRole('button', { name: /Submit & Lock Response/i }).click();
     await phone1Page.waitForSelector('.fj-phone-locked-title:has-text("Response Locked!")', {
       timeout: 5000,
@@ -244,27 +331,54 @@ async function runTest() {
     });
     const restoredResponse = await phone1Page.textContent('.fj-phone-secret-response');
     assert(
-      restoredResponse?.includes('What is Paris?'),
+      restoredResponse?.includes('What is the Berlin Wall?'),
       `Reconnected Alice should see her locked response, got ${restoredResponse}`,
     );
     console.log('   ✓ Reconnected Alice got her exact locked Final Jeopardy state back');
 
     // Bob submits response
-    await phone2Page.fill('.fj-phone-response-input', 'What is London?');
+    await phone2Page.fill('.fj-phone-response-input', 'What is the Iron Curtain?');
     await phone2Page.getByRole('button', { name: /Submit & Lock Response/i }).click();
     await phone2Page.waitForSelector('.fj-phone-locked-title:has-text("Response Locked!")', {
       timeout: 5000,
     });
 
-    // Verify host clue screen hides response text (checkmarks only)
-    const hostClueText = await hostPage.textContent('.fj-clue-stage');
-    assert(
-      !hostClueText?.includes('Paris') && !hostClueText?.includes('London'),
-      'Host clue screen must not expose player response text',
+    await hostPage.waitForFunction(
+      () => document.querySelectorAll('.fj-contestant-card.is-locked').length === 2,
+      undefined,
+      { timeout: 5000 },
     );
-    console.log('   ✓ Host clue screen shows checkmarks only (no response text leaked)');
+    await sleep(300);
 
-    // Test Pause / Music Off / Reset controls
+    // Verify host clue screen hides response text AND wager amounts completely
+    await assertHostDomDoesNotContain(
+      hostPage,
+      ['Berlin', 'Iron Curtain', '600', '300'],
+      'Clue phase after phone responses locked',
+    );
+    await maybeScreenshot(hostPage, 'fj-host-clue-timer.png');
+    console.log('   ✓ Host clue screen shows neutral checkmarks only (no responses or wagers in DOM)');
+
+    // Verify clue-phase Overrides drawer uses masked password inputs and never exposes text
+    await hostPage.getByRole('button', { name: 'Overrides' }).click();
+    await hostPage.waitForSelector('.fj-host-drawer');
+    const aliceRespOverride = hostPage.locator('input[aria-label="Alice response"]');
+    assert(
+      (await aliceRespOverride.getAttribute('type')) === 'password',
+      'Clue-phase response override input must be masked (type="password")',
+    );
+    assert(
+      (await aliceRespOverride.inputValue()) === '',
+      'Clue-phase response override input must not leak phone response',
+    );
+    await assertHostDomDoesNotContain(
+      hostPage,
+      ['Berlin', 'Iron Curtain', '600', '300'],
+      'Clue phase with Overrides drawer open',
+    );
+    await hostPage.locator('.fj-host-drawer button:has-text("Done")').click();
+
+    // Test Pause / Music Off / Reset controls in bottom host bar
     await hostPage.getByRole('button', { name: /Pause/i }).click();
     await hostPage.waitForSelector('button:has-text("Resume")', { timeout: 3000 });
     await hostPage.getByRole('button', { name: /Music On/i }).click();
@@ -272,17 +386,22 @@ async function runTest() {
     await hostPage.getByRole('button', { name: /Reset/i }).click();
     const resetClock = (await hostPage.textContent('.fj-timer-clock'))?.trim();
     assert(resetClock === '1:00', `Reset should restore timer to 1:00, got ${resetClock}`);
-    console.log('   ✓ Pause, Music On/Off, and Reset (to 1:00) controls verified');
+    console.log('   ✓ Pause, Music On/Off, Reset (to 1:00), and masked Overrides drawer verified');
 
     // Begin TV-style Reveal
     console.log('6. Running TV-style reveal (lowest score first)...');
     await hostPage.getByRole('button', { name: /Begin Reveal/i }).click();
     await hostPage.waitForSelector('.fj-podium-stage');
 
-    // Correct response must be hidden initially
+    // Correct response must be hidden initially; unrevealed wagers (300, 600) must NOT be in DOM
     assert(
       (await hostPage.locator('.fj-correct-response-banner').count()) === 0,
       'Correct response must remain hidden until host chooses to reveal it',
+    );
+    await assertHostDomDoesNotContain(
+      hostPage,
+      ['600', '300', 'Berlin'],
+      'Reveal phase on Bob (first player) before other players revealed',
     );
 
     // First up: Bob (-$200)
@@ -291,7 +410,7 @@ async function runTest() {
       'Lowest scorer (Bob) should be revealed first',
     );
     assert(
-      (await hostPage.textContent('.fj-response-big-text'))?.includes('What is London?'),
+      (await hostPage.textContent('.fj-response-big-text'))?.includes('What is the Iron Curtain?'),
       'Bob response should be shown big on screen',
     );
     await hostPage.getByRole('button', { name: '✗ Incorrect' }).click();
@@ -300,15 +419,39 @@ async function runTest() {
     await hostPage.getByRole('button', { name: /Next Player: Charlie/i }).click();
     console.log('   ✓ Revealed Bob (Incorrect, -$0)');
 
-    // Second up: Charlie ($400, manual player)
+    // Second up: Charlie ($400, manual player) — wager $300 must STILL be hidden before Reveal Wager
     assert(
       (await hostPage.textContent('.fj-podium-name'))?.trim() === 'Charlie',
       'Second lowest scorer (Charlie) should be revealed next',
     );
-    await hostPage.getByRole('button', { name: '+ Type response' }).click();
-    await hostPage.fill('.fj-response-inline-edit input', 'What is Tokyo?');
-    await hostPage.locator('.fj-response-inline-actions button:has-text("Save")').click();
+    await assertHostDomDoesNotContain(
+      hostPage,
+      ['300', '600'],
+      'Reveal phase on Charlie before Reveal Wager',
+    );
+
+    await hostPage.getByRole('button', { name: '+ Type Response / Override' }).click();
+    await hostPage.waitForSelector('.fj-host-drawer');
+    const revealWagerOverride = hostPage.locator('input[aria-label="Override player wager"]');
+    assert(
+      (await revealWagerOverride.getAttribute('type')) === 'password',
+      'Reveal wager override input must be masked (type="password")',
+    );
+    assert(
+      (await revealWagerOverride.inputValue()) === '',
+      'Reveal wager override input must not leak unrevealed wager',
+    );
+    await hostPage.fill('input[aria-label="Edit player response"]', 'What is the Berlin Wall?');
+    await hostPage.locator('.fj-host-drawer button:has-text("Save")').click();
+
     await hostPage.getByRole('button', { name: '✓ Correct' }).click();
+    // Still hidden before clicking Reveal Wager!
+    await assertHostDomDoesNotContain(
+      hostPage,
+      ['300', '600'],
+      'Reveal phase on Charlie after judging, before Reveal Wager',
+    );
+
     await hostPage.getByRole('button', { name: 'Reveal Wager' }).click();
     await sleep(1000);
     const charlieNewScore = await hostPage.textContent('.fj-podium-score');
@@ -324,16 +467,28 @@ async function runTest() {
     await hostPage.waitForSelector('.fj-correct-response-banner');
     console.log('   ✓ Host explicitly revealed correct response');
 
-    // Third up: Alice ($1,000)
+    // Third up: Alice ($1,000) — $600 must NOT appear in DOM until Reveal Wager is clicked
     assert(
       (await hostPage.textContent('.fj-podium-name'))?.trim() === 'Alice',
       'Highest scorer (Alice) should be revealed last',
     );
     assert(
-      (await hostPage.textContent('.fj-response-big-text'))?.includes('What is Paris?'),
+      (await hostPage.textContent('.fj-response-big-text'))?.includes('What is the Berlin Wall?'),
       'Alice response should be shown big on screen',
     );
+    await assertHostDomDoesNotContain(
+      hostPage,
+      ['600'],
+      'Reveal phase on Alice before Reveal Wager',
+    );
+
     await hostPage.getByRole('button', { name: '✓ Correct' }).click();
+    await assertHostDomDoesNotContain(
+      hostPage,
+      ['600'],
+      'Reveal phase on Alice after judging, before Reveal Wager',
+    );
+
     await hostPage.getByRole('button', { name: 'Reveal Wager' }).click();
     await sleep(1000);
     const aliceNewScore = await hostPage.textContent('.fj-podium-score');
@@ -341,6 +496,7 @@ async function runTest() {
       aliceNewScore?.includes('$1,600'),
       `Alice score should animate to $1,600, got ${aliceNewScore}`,
     );
+    await maybeScreenshot(hostPage, 'fj-host-reveal.png');
 
     // Check Alice's phone received her revealed result & final score
     await phone1Page.waitForSelector('.fj-phone-result-badge.correct', { timeout: 5000 });
@@ -357,7 +513,7 @@ async function runTest() {
     console.log('   ✓ Final scores screen verified');
 
     // Exit Final Jeopardy -> phones return to buzzer screen
-    await hostPage.getByRole('button', { name: 'Back to board' }).click();
+    await hostPage.getByRole('button', { name: 'Back to Board' }).click();
     await phone1Page.waitForSelector('.buzzer-button', { timeout: 5000 });
     await phone2Page.waitForSelector('.buzzer-button', { timeout: 5000 });
     console.log('   ✓ Phones returned to buzzer screen after Final Jeopardy closed');
