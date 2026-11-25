@@ -126,10 +126,13 @@
 }
 
 .lobby-players-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 0.5rem;
   margin-bottom: 1rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
 }
 
 .lobby-player {

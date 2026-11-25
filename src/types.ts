@@ -16,6 +16,7 @@ export interface Player {
   name: string;
   score: number;
   buzzerPeerId?: string; // Associated phone buzzer peer ID
+  buzzerDeviceId?: string; // Persistent phone device ID for seamless reconnection
   isManual?: boolean; // True if added manually (no phone required)
 }
 

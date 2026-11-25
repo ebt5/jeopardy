@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useBuzzerPhone } from '../buzzer/useBuzzerPhone';
+import { useWakeLock } from '../buzzer/useWakeLock';
+import {
+  clearPhoneIdentity,
+  loadLastPlayerName,
+  loadPhoneIdentity,
+  normalizeRoomCode,
+  rotateDeviceId,
+  saveLastPlayerName,
+} from '../buzzer/phone-session';
 import type { FinalJeopardyPhoneState } from '../buzzer/types';
 import {
   DEFAULT_FJ_TIMER_SECONDS,
@@ -8,8 +17,6 @@ import {
   MAX_FJ_RESPONSE_LENGTH,
 } from '../buzzer/final-jeopardy';
 import './BuzzerPhone.css';
-
-const SAVED_NAME_KEY = 'jeopardy-buzzer-player-name';
 
 interface BuzzerPhoneProps {
   roomCode: string;
@@ -22,6 +29,7 @@ interface FinalJeopardyPhoneScreenProps {
   onSubmitWager: (wager: number) => void;
   onSubmitResponse: (response: string) => void;
   onLeave: () => void;
+  onChangeName: () => void;
 }
 
 function FinalJeopardyPhoneScreen({
@@ -31,6 +39,7 @@ function FinalJeopardyPhoneScreen({
   onSubmitWager,
   onSubmitResponse,
   onLeave,
+  onChangeName,
 }: FinalJeopardyPhoneScreenProps) {
   const [wagerInput, setWagerInput] = useState<string>(() =>
     fj.maxWager === 0 ? '0' : '',
@@ -334,9 +343,7 @@ function FinalJeopardyPhoneScreen({
           <div className="fj-phone-card fj-phone-locked-card">
             {fj.revealResult ? (
               <>
-                <div
-                  className={`fj-phone-result-badge ${fj.revealResult}`}
-                >
+                <div className={`fj-phone-result-badge ${fj.revealResult}`}>
                   {fj.revealResult === 'correct' ? '✓ CORRECT!' : '✗ INCORRECT'}
                 </div>
                 <p className="fj-phone-result-delta">
@@ -370,14 +377,24 @@ function FinalJeopardyPhoneScreen({
             )}
           </div>
         )}
+
+        <button
+          type="button"
+          className="buzzer-change-name-link"
+          onClick={onChangeName}
+        >
+          Not you? Change name
+        </button>
       </div>
     </div>
   );
 }
 
 export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
+  const normalizedRoom = normalizeRoomCode(roomCode);
   const {
     status,
+    isReconnecting,
     buzzStatus,
     players,
     myRank,
@@ -392,14 +409,30 @@ export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
     submitFinalResponse,
   } = useBuzzerPhone();
 
-  const [name, setName] = useState(() => {
-    try {
-      return localStorage.getItem(SAVED_NAME_KEY) ?? '';
-    } catch {
-      return '';
+  const initialSaved = loadPhoneIdentity(normalizedRoom);
+  const [name, setName] = useState<string>(() =>
+    initialSaved ? initialSaved.name : loadLastPlayerName(),
+  );
+  const [hasJoined, setHasJoined] = useState<boolean>(() => Boolean(initialSaved));
+
+  // Keep Screen Wake Lock active from the very moment the player joins or auto-rejoins
+  const { requestWakeLock, releaseWakeLock } = useWakeLock(hasJoined);
+
+  // Auto-rejoin seamlessly when loading/resuming a room with a persisted identity
+  useEffect(() => {
+    const saved = loadPhoneIdentity(normalizedRoom);
+    if (saved) {
+      setName(saved.name);
+      setHasJoined(true);
+      connect(normalizedRoom, saved.name, {
+        gamePlayerId: saved.gamePlayerId,
+        deviceId: saved.deviceId,
+        isAutoRejoin: true,
+      });
+    } else {
+      setHasJoined(false);
     }
-  });
-  const [hasJoined, setHasJoined] = useState(false);
+  }, [normalizedRoom, connect]);
 
   useEffect(() => {
     if (status === 'disconnected' && error) {
@@ -410,21 +443,30 @@ export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
   const handleJoin = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    try {
-      localStorage.setItem(SAVED_NAME_KEY, trimmed);
-    } catch {
-      /* ignore storage errors */
-    }
-    connect(roomCode, trimmed);
+    // Request Screen Wake Lock immediately inside this Join tap user gesture
+    void requestWakeLock();
+    saveLastPlayerName(trimmed);
+    connect(normalizedRoom, trimmed);
     setHasJoined(true);
   };
 
   const handleDisconnect = () => {
-    disconnect();
+    releaseWakeLock();
+    clearPhoneIdentity(normalizedRoom);
+    disconnect({ clearSaved: true });
     setHasJoined(false);
   };
 
-  // Not joined yet - show name entry
+  const handleChangeName = () => {
+    releaseWakeLock();
+    clearPhoneIdentity(normalizedRoom);
+    // Rotate device ID so a different person using this phone gets their own player slot
+    rotateDeviceId();
+    disconnect({ clearSaved: true });
+    setHasJoined(false);
+  };
+
+  // Not joined yet — show name entry form
   if (!hasJoined || status === 'disconnected') {
     return (
       <div className="buzzer-phone">
@@ -435,7 +477,7 @@ export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
           {error && <div className="buzzer-error">{error}</div>}
 
           <div className="buzzer-room-code">
-            Room: <span>{roomCode}</span>
+            Room: <span>{normalizedRoom}</span>
           </div>
 
           <div className="buzzer-join-form">
@@ -470,7 +512,30 @@ export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
     );
   }
 
-  // Connecting/syncing
+  // Seamless reconnecting state (auto-rejoin on load or wake from sleep — never shows name form)
+  if (status === 'reconnecting' || (status === 'syncing' && isReconnecting)) {
+    return (
+      <div className="buzzer-phone">
+        <div className="buzzer-phone-status">
+          <h1 className="buzzer-logo small">JEOPARDY!</h1>
+          <div className="buzzer-connecting buzzer-reconnecting">
+            <div className="buzzer-spinner small" />
+            <p className="buzzer-reconnecting-text">Reconnecting…</p>
+            {name && <p className="buzzer-reconnecting-name">{name}</p>}
+          </div>
+          <button
+            type="button"
+            className="buzzer-change-name-link"
+            onClick={handleChangeName}
+          >
+            Not you? Change name
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Initial connecting / syncing
   if (status === 'connecting' || status === 'syncing') {
     return (
       <div className="buzzer-phone">
@@ -506,6 +571,7 @@ export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
         onSubmitWager={submitFinalWager}
         onSubmitResponse={submitFinalResponse}
         onLeave={handleDisconnect}
+        onChangeName={handleChangeName}
       />
     );
   }
@@ -560,6 +626,15 @@ export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
               {p.name}
             </span>
           ))}
+        </div>
+        <div className="buzzer-phone-footer">
+          <button
+            type="button"
+            className="buzzer-change-name-link"
+            onClick={handleChangeName}
+          >
+            Not you? Change name
+          </button>
         </div>
       </div>
     </div>

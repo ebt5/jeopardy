@@ -19,7 +19,7 @@ export interface BuzzResult {
 export interface BuzzerRoundResult {
   winner: BuzzResult;
   runnerUps: BuzzResult[];
-  lockedOutIds: Set<string>; // Player IDs locked out for this clue
+  lockedOutIds: string[]; // Player IDs locked out for this clue (serialized over PeerJS)
 }
 
 /** Callback signature for correct/wrong answer handling */

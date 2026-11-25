@@ -11,6 +11,7 @@ import { PlayersBar } from './components/PlayersBar';
 import { Setup } from './components/Setup';
 import { BuzzerHost } from './components/BuzzerHost';
 import { useBuzzerHost } from './buzzer/useBuzzerHost';
+import { reconcileBuzzerPlayers } from './buzzer/phone-session';
 import './App.css';
 
 interface ActiveClue {
@@ -68,81 +69,12 @@ export default function App() {
     const prevBuzzerPlayers = prevBuzzerPlayersRef.current;
     prevBuzzerPlayersRef.current = newBuzzerPlayers;
 
-    let updated = [...playersRef.current];
-    let changed = false;
-    const toLink: Array<{ peerId: string; gamePlayerId: string }> = [];
-
-    for (const bp of newBuzzerPlayers) {
-      const existingByPeerId = updated.find((p) => p.buzzerPeerId === bp.peerId);
-      if (existingByPeerId) {
-        if (bp.deviceId) {
-          deviceToPlayerRef.current.set(bp.deviceId, existingByPeerId.id);
-        }
-        if (bp.gamePlayerId !== existingByPeerId.id) {
-          toLink.push({ peerId: bp.peerId, gamePlayerId: existingByPeerId.id });
-        }
-        continue;
-      }
-
-      let matchedPlayer: Player | undefined;
-
-      if (bp.deviceId) {
-        const knownPlayerId = deviceToPlayerRef.current.get(bp.deviceId);
-        if (knownPlayerId) {
-          matchedPlayer = updated.find((p) => p.id === knownPlayerId);
-        }
-      }
-
-      if (!matchedPlayer) {
-        matchedPlayer = updated.find(
-          (p) => p.name.toLowerCase() === bp.name.toLowerCase() && !p.buzzerPeerId,
-        );
-      }
-
-      if (matchedPlayer) {
-        updated = updated.map((p) =>
-          p.id === matchedPlayer!.id
-            ? { ...p, buzzerPeerId: bp.peerId, isManual: false }
-            : p,
-        );
-        toLink.push({ peerId: bp.peerId, gamePlayerId: matchedPlayer.id });
-        if (bp.deviceId) {
-          deviceToPlayerRef.current.set(bp.deviceId, matchedPlayer.id);
-        }
-        changed = true;
-      } else {
-        const wasInPrev = prevBuzzerPlayers.some((prev) => prev.peerId === bp.peerId);
-        if (!wasInPrev) {
-          const newPlayerId = `p${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-          const newPlayer: Player = {
-            id: newPlayerId,
-            name: bp.name,
-            score: 0,
-            buzzerPeerId: bp.peerId,
-            isManual: false,
-          };
-          updated.push(newPlayer);
-          toLink.push({ peerId: bp.peerId, gamePlayerId: newPlayerId });
-          if (bp.deviceId) {
-            deviceToPlayerRef.current.set(bp.deviceId, newPlayerId);
-          }
-          changed = true;
-        }
-      }
-    }
-
-    for (const prevBp of prevBuzzerPlayers) {
-      const stillConnected = newBuzzerPlayers.some((bp) => bp.peerId === prevBp.peerId);
-      if (!stillConnected) {
-        const linkedPlayer = updated.find((p) => p.buzzerPeerId === prevBp.peerId);
-        if (linkedPlayer) {
-          updated = updated.map((p) =>
-            p.id === linkedPlayer.id ? { ...p, buzzerPeerId: undefined } : p,
-          );
-          changed = true;
-        }
-      }
-    }
+    const { players: updated, changed, toLink } = reconcileBuzzerPlayers(
+      playersRef.current,
+      newBuzzerPlayers,
+      prevBuzzerPlayers,
+      deviceToPlayerRef.current,
+    );
 
     if (changed) {
       setConfig((prev) => ({ ...prev, players: updated }));
