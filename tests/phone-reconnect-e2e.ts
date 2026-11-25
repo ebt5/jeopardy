@@ -47,13 +47,68 @@ async function runTest() {
       await dialog.accept();
     });
 
-    console.log('1. Logging in as host and starting buzzer lobby...');
+    console.log('1. Opening host setup directly (no login), verifying BYOK xAI key UI, and starting buzzer lobby...');
     await hostPage.goto(BASE_URL);
-    await hostPage.waitForSelector('.login-card');
-    await hostPage.fill('input[type="text"]', 'Erik');
-    await hostPage.fill('input[type="password"]', 'goose');
-    await hostPage.click('button[type="submit"]');
     await hostPage.waitForSelector('.setup');
+    assert(
+      (await hostPage.locator('.login-card').count()) === 0,
+      'App must open straight to Setup with no login gate',
+    );
+
+    // Verify BYOK xAI API key controls (no default key, localStorage-only, inline prompt, Forget key)
+    const keyInput = hostPage.locator('#byok-api-key-input');
+    const keyStatus = hostPage.locator('.api-key-status');
+    const forgetBtn = hostPage.getByRole('button', { name: 'Forget key' });
+    assert((await keyInput.getAttribute('type')) === 'password', 'API key input must default to password type');
+    assert((await keyInput.inputValue()) === '', 'API key input must start empty with no baked-in default');
+    assert(
+      (await keyStatus.textContent())?.trim() === 'No key',
+      `Expected "No key" status, got ${await keyStatus.textContent()}`,
+    );
+    assert(await forgetBtn.isDisabled(), 'Forget key should be disabled when no key is saved');
+    assert(
+      (await hostPage.locator('a[href="https://console.x.ai"]').count()) === 1,
+      'Setup must link to https://console.x.ai',
+    );
+
+    // Clicking Generate with no key shows an inline error prompt (no crash)
+    await hostPage.getByRole('button', { name: 'Generate game' }).click();
+    await hostPage.waitForSelector('.ai-error', { timeout: 3000 });
+
+    // Saving a key persists only in localStorage, never leaks to game config or saved boards
+    const dummyKey = 'test-browser-only-key-999';
+    await keyInput.fill(dummyKey);
+    assert(
+      (await keyStatus.textContent())?.trim() === 'Key saved in this browser',
+      'Status should update to "Key saved in this browser"',
+    );
+    await hostPage.getByRole('button', { name: 'Show' }).click();
+    assert((await keyInput.getAttribute('type')) === 'text', 'Show button should toggle input to text');
+    await hostPage.getByRole('button', { name: 'Hide' }).click();
+    assert((await keyInput.getAttribute('type')) === 'password', 'Hide button should toggle input back to password');
+
+    await hostPage.reload();
+    await hostPage.waitForSelector('.setup');
+    assert(
+      (await hostPage.locator('.api-key-status').textContent())?.trim() === 'Key saved in this browser',
+      'Saved key status should persist in localStorage across reload',
+    );
+    const leakedIntoConfig = await hostPage.evaluate((k) => {
+      const cfg = localStorage.getItem('jeopardy-game-config') ?? '';
+      const boards = localStorage.getItem('jeopardy-saved-boards') ?? '';
+      return cfg.includes(k) || boards.includes(k);
+    }, dummyKey);
+    assert(!leakedIntoConfig, 'API key must never be stored in game config or saved boards');
+
+    await hostPage.getByRole('button', { name: 'Forget key' }).click();
+    assert(
+      (await hostPage.locator('.api-key-status').textContent())?.trim() === 'No key',
+      'Forget key must revert status to "No key"',
+    );
+    const keyAfterForget = await hostPage.evaluate(() => localStorage.getItem('jeopardy_xai_api_key'));
+    assert(keyAfterForget === null, 'Forget key must remove key from localStorage');
+    console.log('   ✓ Direct-to-Setup (no login) and BYOK xAI API key UI verified');
+
     await hostPage.getByRole('button', { name: 'Load demo game' }).click();
     await sleep(200);
 

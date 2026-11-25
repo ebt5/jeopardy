@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppMode, GameConfig, Player } from './types';
 import type { BuzzerPlayer } from './buzzer/types';
-import { clearSession, loadSession, type Session } from './auth';
 import { loadGameConfig, presetConfigFromUrl, saveGameConfig } from './storage';
 import { Board } from './components/Board';
 import { ClueView } from './components/ClueView';
 import { FinalJeopardyView } from './components/FinalJeopardy';
-import { Login } from './components/Login';
 import { PlayersBar } from './components/PlayersBar';
 import { Setup } from './components/Setup';
 import { BuzzerHost } from './components/BuzzerHost';
@@ -29,7 +27,6 @@ interface BuzzerControls {
 }
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(() => loadSession());
   const [mode, setMode] = useState<AppMode>('setup');
   const [config, setConfig] = useState<GameConfig>(() => {
     const base = loadGameConfig();
@@ -90,15 +87,6 @@ export default function App() {
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [config]);
-
-  const handleLogout = () => {
-    clearSession();
-    setSession(null);
-    setActive(null);
-    setRevealed(false);
-    setShowFinal(false);
-    setMode('setup');
-  };
 
   const handleConfigChange = (next: GameConfig) => {
     setConfig(next);
@@ -211,18 +199,12 @@ export default function App() {
     setShowFinal(true);
   };
 
-  if (!session) {
-    return <Login onSuccess={setSession} />;
-  }
-
   if (mode === 'setup') {
     return (
       <Setup
         config={config}
         onChange={handleConfigChange}
         onStart={startGame}
-        username={session.username}
-        onLogout={handleLogout}
         buzzerHost={buzzerHost}
       />
     );
@@ -240,12 +222,6 @@ export default function App() {
       <header className="play-header">
         <h1 className="logo small">JEOPARDY!</h1>
         <div className="play-header-actions">
-          <span className="session-user" title="Signed in">
-            {session.username}
-          </span>
-          <button type="button" className="btn small" onClick={handleLogout}>
-            Log out
-          </button>
           <button
             type="button"
             className="btn small"

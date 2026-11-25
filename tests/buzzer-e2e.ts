@@ -30,16 +30,10 @@ async function runTest() {
     });
     const hostPage = await hostContext.newPage();
     
-    console.log('1. Opening host page and logging in...');
+    console.log('1. Opening host page (direct to Setup, no login)...');
     await hostPage.goto(BASE_URL);
-    await hostPage.waitForSelector('.login-card');
-    
-    await hostPage.fill('input[type="text"]', 'Erik');
-    await hostPage.fill('input[type="password"]', 'goose');
-    await hostPage.click('button[type="submit"]');
-    
     await hostPage.waitForSelector('.setup');
-    console.log('   ✓ Logged in successfully');
+    console.log('   ✓ Setup loaded directly');
 
     // === NEW FLOW: Start buzzer lobby in Setup ===
     console.log('\n2. Starting buzzer lobby in Setup...');

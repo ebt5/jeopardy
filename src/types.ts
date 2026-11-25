@@ -48,7 +48,7 @@ export const CLUE_VALUES = [200, 400, 600, 800, 1000] as const;
 
 export const STORAGE_KEY = 'jeopardy-game-config';
 export const SAVED_BOARDS_KEY = 'jeopardy-saved-boards';
-export const API_KEY_STORAGE = 'jeopardy-openai-api-key';
+export const API_KEY_STORAGE = 'jeopardy_xai_api_key';
 
 export const DEFAULT_FINAL_JEOPARDY: FinalJeopardy = {
   category: 'FINAL JEOPARDY',

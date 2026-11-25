@@ -200,9 +200,56 @@ button {
   font-size: 0.9rem;
 }
 
+.api-key-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.api-key-status {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(168, 180, 216, 0.15);
+  border: 1px solid rgba(168, 180, 216, 0.35);
+  color: var(--muted);
+}
+
+.api-key-status.saved {
+  background: rgba(46, 204, 113, 0.16);
+  border-color: rgba(46, 204, 113, 0.45);
+  color: #7ee8a5;
+}
+
 .api-key-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.api-key-row input {
+  flex: 1 1 220px;
+}
+
+.api-key-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.1rem;
+}
+
+.api-key-link {
+  color: var(--gold);
+  font-size: 0.84rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.api-key-link:hover {
+  color: #ffffff;
 }
 
 .ai-actions {
@@ -1231,83 +1278,6 @@ button {
   margin-bottom: 0.35rem;
 }
 
-
-/* —— Login / session —— */
-
-.login {
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  background:
-    radial-gradient(ellipse at top, rgba(6, 12, 233, 0.35), transparent 55%),
-    #010228;
-}
-
-.login-card {
-  width: 100%;
-  max-width: 420px;
-  background: rgba(10, 26, 74, 0.92);
-  border: 1px solid rgba(255, 215, 0, 0.35);
-  border-radius: 16px;
-  padding: 2rem 1.75rem 1.75rem;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  text-align: center;
-}
-
-.login-subtitle {
-  color: var(--muted);
-  margin: 0.65rem 0 1.5rem;
-}
-
-.login-form {
-  text-align: left;
-}
-
-.login-form .field-label input {
-  width: 100%;
-  background: #060b2e;
-  border: 1px solid rgba(168, 180, 216, 0.35);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 0.65rem 0.75rem;
-}
-
-.login-form .field-label input:focus {
-  outline: 2px solid rgba(255, 215, 0, 0.55);
-  border-color: transparent;
-}
-
-.login-error {
-  color: #ff8a80;
-  background: rgba(231, 76, 60, 0.15);
-  border: 1px solid rgba(231, 76, 60, 0.4);
-  border-radius: 8px;
-  padding: 0.65rem 0.8rem;
-  margin: 0 0 0.85rem;
-  font-size: 0.92rem;
-}
-
-.login-submit {
-  width: 100%;
-  margin-top: 0.25rem;
-}
-
-.setup-header-top {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.session-user {
-  color: var(--gold);
-  font-weight: 700;
-  font-size: 0.92rem;
-  letter-spacing: 0.02em;
-}
 
 /* Daily Double splash animation */
 .dd-splash-body {

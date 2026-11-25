@@ -11,7 +11,6 @@ import {
   STORAGE_KEY,
 } from './types';
 import { createBlankGame } from './demo';
-import { DEFAULT_API_KEY } from './defaults';
 
 function normalizeFinalJeopardy(raw: unknown): FinalJeopardy {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_FINAL_JEOPARDY };
@@ -56,16 +55,33 @@ export function saveGameConfig(config: GameConfig): void {
 }
 
 export function loadApiKey(): string {
-  const stored = localStorage.getItem(API_KEY_STORAGE);
-  if (stored && stored.trim()) return stored.trim();
-  return DEFAULT_API_KEY;
+  try {
+    const stored = localStorage.getItem(API_KEY_STORAGE);
+    return stored?.trim() ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function saveApiKey(key: string): void {
-  if (key.trim()) {
-    localStorage.setItem(API_KEY_STORAGE, key.trim());
-  } else {
+  try {
+    if (key.trim()) {
+      localStorage.setItem(API_KEY_STORAGE, key.trim());
+    } else {
+      localStorage.removeItem(API_KEY_STORAGE);
+    }
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+export function clearApiKey(): void {
+  try {
     localStorage.removeItem(API_KEY_STORAGE);
+    // Also clean up any legacy key slot if present from earlier versions
+    localStorage.removeItem('jeopardy-openai-api-key');
+  } catch {
+    /* ignore storage errors */
   }
 }
 
