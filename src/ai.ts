@@ -61,11 +61,16 @@ export async function generateGame(
   apiKey: string,
   userPrompt: string,
 ): Promise<GenerateResult> {
+  const trimmedKey = apiKey.trim();
+  if (!trimmedKey) {
+    throw new Error('Add an xAI API key to generate a game.');
+  }
+
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${trimmedKey}`,
     },
     body: JSON.stringify({
       model: 'grok-3-mini',

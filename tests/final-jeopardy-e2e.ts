@@ -67,13 +67,13 @@ async function runTest() {
       await dialog.accept();
     });
 
-    console.log('1. Logging in as host and loading demo game...');
+    console.log('1. Opening host setup directly (no login gate) and loading demo game...');
     await hostPage.goto(BASE_URL);
-    await hostPage.waitForSelector('.login-card');
-    await hostPage.fill('input[type="text"]', 'Erik');
-    await hostPage.fill('input[type="password"]', 'goose');
-    await hostPage.click('button[type="submit"]');
     await hostPage.waitForSelector('.setup');
+    assert(
+      (await hostPage.locator('.login-card').count()) === 0,
+      'Login gate should not appear',
+    );
 
     await hostPage.getByRole('button', { name: 'Load demo game' }).click();
     await sleep(200);

@@ -5,6 +5,7 @@ import { createBlankGame, createDemoGame, createEmptyClues } from '../demo';
 import { generateGame } from '../ai';
 import {
   boardSnapshot,
+  clearApiKey,
   deleteSavedBoard,
   loadApiKey,
   loadSavedBoards,
@@ -19,12 +20,10 @@ interface SetupProps {
   config: GameConfig;
   onChange: (config: GameConfig) => void;
   onStart: () => void;
-  username: string;
-  onLogout: () => void;
   buzzerHost: UseBuzzerHostResult;
 }
 
-export function Setup({ config, onChange, onStart, username, onLogout, buzzerHost }: SetupProps) {
+export function Setup({ config, onChange, onStart, buzzerHost }: SetupProps) {
   const [apiKey, setApiKey] = useState(loadApiKey);
   const [prompt, setPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
@@ -32,6 +31,7 @@ export function Setup({ config, onChange, onStart, username, onLogout, buzzerHos
   const [showKey, setShowKey] = useState(false);
   const [savedBoards, setSavedBoards] = useState<SavedBoard[]>(() => loadSavedBoards());
   const importRef = useRef<HTMLInputElement>(null);
+  const apiKeyInputRef = useRef<HTMLInputElement>(null);
 
   const updateCategoryName = (ci: number, name: string) => {
     const categories = config.categories.map((c, i) =>
@@ -85,19 +85,31 @@ export function Setup({ config, onChange, onStart, username, onLogout, buzzerHos
   const handleApiKeyChange = (key: string) => {
     setApiKey(key);
     saveApiKey(key);
+    if (key.trim()) {
+      setAiError(null);
+    }
+  };
+
+  const handleForgetKey = () => {
+    clearApiKey();
+    setApiKey('');
+    setShowKey(false);
+    setAiError(null);
   };
 
   const handleGenerate = async () => {
     setAiError(null);
-    if (!apiKey.trim()) {
+    const storedKey = loadApiKey();
+    if (!storedKey) {
       setAiError(
-        'Add an xAI API key above to use AI Generate. Or use “Load demo game” / edit clues manually.',
+        'Add an xAI API key above to generate a board with AI. Everything else works with no key.',
       );
+      apiKeyInputRef.current?.focus();
       return;
     }
     setAiBusy(true);
     try {
-      const result = await generateGame(apiKey.trim(), prompt);
+      const result = await generateGame(storedKey, prompt);
       onChange({
         ...config,
         categories: result.categories,
@@ -224,17 +236,11 @@ export function Setup({ config, onChange, onStart, username, onLogout, buzzerHos
     0,
   );
 
+  const hasSavedKey = Boolean(apiKey.trim());
+
   return (
     <div className="setup">
       <header className="setup-header">
-        <div className="setup-header-top">
-          <span className="session-user" title="Signed in">
-            {username}
-          </span>
-          <button type="button" className="btn small" onClick={onLogout}>
-            Log out
-          </button>
-        </div>
         <h1 className="logo">JEOPARDY!</h1>
         <p className="setup-subtitle">Host setup — edit the board, then Start Game</p>
         {config.boardName && (
@@ -314,15 +320,26 @@ export function Setup({ config, onChange, onStart, username, onLogout, buzzerHos
       <section className="setup-section">
         <h2>AI Seed (optional)</h2>
         <div className="ai-panel">
-          <label className="field-label">
-            xAI API key
+          <div className="field-label">
+            <div className="api-key-header">
+              <label htmlFor="byok-api-key-input">xAI API key</label>
+              <span
+                className={`api-key-status${hasSavedKey ? ' saved' : ''}`}
+                aria-live="polite"
+              >
+                {hasSavedKey ? 'Key saved in this browser' : 'No key'}
+              </span>
+            </div>
             <div className="api-key-row">
               <input
+                ref={apiKeyInputRef}
+                id="byok-api-key-input"
                 type={showKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={(e) => handleApiKeyChange(e.target.value)}
-                placeholder="sk-... (stored only in this browser)"
+                placeholder="Paste your xAI API key"
                 autoComplete="off"
+                spellCheck={false}
               />
               <button
                 type="button"
@@ -331,8 +348,30 @@ export function Setup({ config, onChange, onStart, username, onLogout, buzzerHos
               >
                 {showKey ? 'Hide' : 'Show'}
               </button>
+              <button
+                type="button"
+                className="btn small"
+                onClick={handleForgetKey}
+                disabled={!hasSavedKey}
+              >
+                Forget key
+              </button>
             </div>
-          </label>
+            <div className="api-key-meta">
+              <a
+                href="https://console.x.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="api-key-link"
+              >
+                Create an API key at console.x.ai ↗
+              </a>
+            </div>
+          </div>
+          <p className="ai-note">
+            Your key stays in this browser and is sent only directly to xAI. Use a key with a
+            spending limit. Don&apos;t save it on shared computers.
+          </p>
           <label className="field-label">
             Prompt / category hints
             <textarea
@@ -358,13 +397,7 @@ export function Setup({ config, onChange, onStart, username, onLogout, buzzerHos
               Clear board
             </button>
           </div>
-          {aiError && <p className="ai-error">{aiError}</p>}
-          {!apiKey.trim() && (
-            <p className="ai-note">
-              No API key needed for manual editing or the demo game. Key is saved in
-              Pre-filled for hosts; stored in localStorage and sent only to xAI when you generate.
-            </p>
-          )}
+          {aiError && <p className="ai-error" role="alert">{aiError}</p>}
         </div>
       </section>
 
