@@ -452,6 +452,7 @@ export function FinalJeopardyView({
 
   const hasConnectedPhones = players.some((p) => Boolean(p.buzzerPeerId));
   const hasManualOrUnconnected = players.some((p) => !p.buzzerPeerId);
+  const manyPlayers = players.length >= 8;
 
   const parseWagerDraft = (raw: string, max: number): number | null => {
     if (max === 0) return 0;
@@ -731,7 +732,10 @@ export function FinalJeopardyView({
           <p className="fj-tv-subtitle">Make your wagers</p>
 
           {/* Contestant Podium Strip — neutral status ONLY, never shows wager amounts */}
-          <div className="fj-podium-strip" aria-label="Contestants">
+          <div
+            className={`fj-podium-strip${manyPlayers ? ' many-players' : ''}`}
+            aria-label="Contestants"
+          >
             {players.map((p) => {
               const entry = session.entries[p.id];
               const startingScore = entry?.startingScore ?? p.score;
@@ -881,7 +885,10 @@ export function FinalJeopardyView({
           </div>
 
           {/* Contestant Podium Strip — neutral checkmarks ONLY, no response content */}
-          <div className="fj-podium-strip" aria-label="Contestant status">
+          <div
+            className={`fj-podium-strip${manyPlayers ? ' many-players' : ''}`}
+            aria-label="Contestant status"
+          >
             {players.map((p) => {
               const entry = session.entries[p.id];
               const locked = entry?.responseLocked === true;
@@ -1074,7 +1081,10 @@ export function FinalJeopardyView({
         </div>
 
         {/* Reveal order progress bar (lowest score first) */}
-        <div className="fj-reveal-queue" aria-label="Reveal order">
+        <div
+          className={`fj-reveal-queue${manyPlayers ? ' many-players' : ''}`}
+          aria-label="Reveal order"
+        >
           {session.revealOrder.map((pid, idx) => {
             const p = players.find((pl) => pl.id === pid);
             const e = session.entries[pid];

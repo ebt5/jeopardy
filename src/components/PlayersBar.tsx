@@ -16,8 +16,9 @@ export function PlayersBar({
   highlightedPlayerId,
 }: PlayersBarProps) {
   const value = clueValue ?? 0;
+  const manyPlayers = players.length > 6;
   return (
-    <div className="players-bar">
+    <div className={`players-bar${manyPlayers ? ' players-bar--many' : ''}`}>
       {players.map((p) => (
         <div
           key={p.id}

@@ -123,6 +123,41 @@
   max-width: 980px;
 }
 
+.fj-podium-strip.many-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 0.55rem;
+  max-width: 1040px;
+  max-height: 34vh;
+  overflow-y: auto;
+  padding: 0.15rem;
+}
+
+.fj-podium-strip.many-players .fj-contestant-card {
+  max-width: none;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  gap: 0.15rem;
+  border-radius: 10px;
+}
+
+.fj-podium-strip.many-players .fj-contestant-name {
+  font-size: 0.95rem;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fj-podium-strip.many-players .fj-contestant-score {
+  font-size: 1.1rem;
+}
+
+.fj-podium-strip.many-players .fj-contestant-status {
+  font-size: 0.72rem;
+  margin-top: 0.05rem;
+}
+
 .fj-contestant-card {
   flex: 1 1 180px;
   max-width: 240px;
@@ -338,6 +373,19 @@
   gap: 0.5rem;
   margin: 0.35rem auto 0;
   padding: 0 1rem;
+  max-width: 1080px;
+}
+
+.fj-reveal-queue.many-players {
+  gap: 0.35rem;
+  max-height: 92px;
+  overflow-y: auto;
+  padding: 0.15rem 1rem;
+}
+
+.fj-reveal-queue.many-players .fj-queue-pill {
+  padding: 0.22rem 0.6rem;
+  font-size: 0.78rem;
 }
 
 .fj-queue-pill {
@@ -730,6 +778,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
 .fj-host-drawer-row {
@@ -792,6 +843,9 @@
 
 .fj-final-list-wide {
   max-width: 560px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
 .fj-final-list-wide li {

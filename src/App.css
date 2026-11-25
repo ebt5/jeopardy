@@ -426,6 +426,29 @@ button {
   gap: 0.5rem;
 }
 
+.players-bar.players-bar--many {
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 0.35rem;
+  max-height: 170px;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.players-bar.players-bar--many .player-box {
+  padding: 0.35rem 0.45rem;
+}
+
+.players-bar.players-bar--many .player-name {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.players-bar.players-bar--many .player-score {
+  font-size: 1.05rem;
+}
+
 .player-box {
   background: linear-gradient(180deg, #142a6e, #0a1740);
   border: 2px solid rgba(255, 215, 0, 0.35);
@@ -595,6 +618,11 @@ button {
   max-width: 1100px;
   margin: 0 auto;
   width: 100%;
+}
+
+.clue-overlay .players-bar.players-bar--many {
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+  max-height: 215px;
 }
 
 @media (max-width: 900px) {
