@@ -321,20 +321,22 @@ async function runTest() {
     });
     console.log('   ✓ Alice submitted response');
 
-    // Mid-Final Reconnect test: reload Alice's phone and rejoin
-    console.log('5. Testing mid-Final phone reconnect for Alice...');
+    // Mid-Final Reconnect test: reload Alice's phone — should auto-rejoin WITHOUT showing name form
+    console.log('5. Testing seamless mid-Final phone auto-rejoin on reload for Alice...');
     await phone1Page.reload();
-    await phone1Page.waitForSelector('.buzzer-join-btn', { timeout: 10000 });
-    await phone1Page.click('.buzzer-join-btn');
     await phone1Page.waitForSelector('.fj-phone-locked-title:has-text("Response Locked!")', {
       timeout: 20000,
     });
+    assert(
+      (await phone1Page.locator('.buzzer-join-btn').count()) === 0,
+      'Reloaded phone should auto-rejoin without showing the name form',
+    );
     const restoredResponse = await phone1Page.textContent('.fj-phone-secret-response');
     assert(
       restoredResponse?.includes('What is the Berlin Wall?'),
       `Reconnected Alice should see her locked response, got ${restoredResponse}`,
     );
-    console.log('   ✓ Reconnected Alice got her exact locked Final Jeopardy state back');
+    console.log('   ✓ Reloaded Alice auto-rejoined seamlessly (no name form) with exact locked FJ state');
 
     // Bob submits response
     await phone2Page.fill('.fj-phone-response-input', 'What is the Iron Curtain?');

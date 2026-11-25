@@ -134,6 +134,52 @@
   animation: spin 1s linear infinite;
 }
 
+.buzzer-spinner.small {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.buzzer-reconnecting {
+  gap: 0.6rem;
+}
+
+.buzzer-reconnecting-text {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.buzzer-reconnecting-name {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #ffd700;
+  font-weight: 700;
+}
+
+.buzzer-change-name-link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0.35rem 0.5rem;
+  color: rgba(168, 180, 216, 0.78);
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.buzzer-change-name-link:hover {
+  color: #ffffff;
+}
+
+.buzzer-phone-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.45rem;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -237,6 +283,8 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   justify-content: center;
+  max-height: 108px;
+  overflow-y: auto;
 }
 
 .buzzer-player-chip {

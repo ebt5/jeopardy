@@ -156,30 +156,50 @@ export function useBuzzerHost(): UseBuzzerHostResult {
 
       switch (msg.type) {
         case 'join': {
-          // If the same device reconnected before the old WebRTC channel timed out,
-          // close the stale connection so reconnects mid-game/mid-Final are instant.
-          if (msg.deviceId) {
-            for (const [oldPeerId, oldState] of connectionsRef.current) {
-              if (oldPeerId !== peerId && oldState.player?.deviceId === msg.deviceId) {
-                const oldInterval = syncIntervalsRef.current.get(oldPeerId);
-                if (oldInterval) {
-                  clearInterval(oldInterval);
-                  syncIntervalsRef.current.delete(oldPeerId);
-                }
-                connectionsRef.current.delete(oldPeerId);
-                try {
-                  oldState.conn.close();
-                } catch {
-                  /* ignore close errors on stale connection */
-                }
+          // If the same device or linked game player reconnected before the old WebRTC channel
+          // timed out, close and replace the stale connection immediately with no duplicates.
+          let inheritedGamePlayerId: string | undefined;
+          let transferredLockout = false;
+          for (const [oldPeerId, oldState] of connectionsRef.current) {
+            if (oldPeerId === peerId) continue;
+            const sameDevice =
+              Boolean(msg.deviceId) && oldState.player?.deviceId === msg.deviceId;
+            const sameGamePlayer =
+              Boolean(msg.gamePlayerId) &&
+              oldState.player?.gamePlayerId === msg.gamePlayerId;
+            if (sameDevice || sameGamePlayer) {
+              if (!inheritedGamePlayerId && oldState.player?.gamePlayerId) {
+                inheritedGamePlayerId = oldState.player.gamePlayerId;
+              }
+              if (lockedOutIdsRef.current.has(oldPeerId)) {
+                lockedOutIdsRef.current.delete(oldPeerId);
+                transferredLockout = true;
+              }
+              const oldInterval = syncIntervalsRef.current.get(oldPeerId);
+              if (oldInterval) {
+                clearInterval(oldInterval);
+                syncIntervalsRef.current.delete(oldPeerId);
+              }
+              connectionsRef.current.delete(oldPeerId);
+              try {
+                oldState.conn.close();
+              } catch {
+                /* ignore close errors on stale connection */
               }
             }
+          }
+
+          if (transferredLockout) {
+            const nextLocked = new Set(lockedOutIdsRef.current);
+            nextLocked.add(peerId);
+            lockedOutIdsRef.current = nextLocked;
+            setLockedOutIds(nextLocked);
           }
 
           connState.player = {
             peerId,
             name: msg.name.slice(0, 20).trim() || 'Player',
-            gamePlayerId: msg.gamePlayerId,
+            gamePlayerId: msg.gamePlayerId ?? inheritedGamePlayerId,
             deviceId: msg.deviceId,
           };
           updatePlayerList();
@@ -248,6 +268,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
     });
 
     conn.on('close', () => {
+      if (connectionsRef.current.get(peerId)?.conn !== conn) return;
       connectionsRef.current.delete(peerId);
       const interval = syncIntervalsRef.current.get(peerId);
       if (interval) {
@@ -259,7 +280,13 @@ export function useBuzzerHost(): UseBuzzerHostResult {
 
     conn.on('error', (err) => {
       console.error('Connection error:', err);
+      if (connectionsRef.current.get(peerId)?.conn !== conn) return;
       connectionsRef.current.delete(peerId);
+      const interval = syncIntervalsRef.current.get(peerId);
+      if (interval) {
+        clearInterval(interval);
+        syncIntervalsRef.current.delete(peerId);
+      }
       updatePlayerList();
     });
   }, [broadcast, updatePlayerList, startSyncWithConnection]);
@@ -297,7 +324,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
         hostTimestamp: b.correctedTimestamp,
         deltaMs: Math.round(b.correctedTimestamp - winnerTime),
       })),
-      lockedOutIds: new Set(lockedOutIds),
+      lockedOutIds: Array.from(lockedOutIdsRef.current),
     };
 
     setLastResult(result);
@@ -321,7 +348,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
         sendTo(peerId, { type: 'your-status', status: 'locked-out' });
       }
     }
-  }, [broadcast, sendTo, lockedOutIds]);
+  }, [broadcast, sendTo]);
 
   const startRoom = useCallback(() => {
     if (peerRef.current) return;
@@ -344,6 +371,17 @@ export function useBuzzerHost(): UseBuzzerHostResult {
     });
 
     peer.on('connection', handleConnection);
+
+    peer.on('disconnected', () => {
+      // Keep the host signaling channel alive so phones waking from sleep can always reconnect
+      if (!peer.destroyed) {
+        try {
+          peer.reconnect();
+        } catch {
+          /* ignore reconnect errors */
+        }
+      }
+    });
 
     peer.on('error', (err) => {
       console.error('Peer error:', err);
