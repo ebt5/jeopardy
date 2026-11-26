@@ -21,8 +21,9 @@ import {
   type SavedPhoneIdentity,
 } from './phone-session';
 import { playLockedOutSound, playYouWonSound, vibrate } from './sounds';
+import { getPeerConfig } from './ice-config';
 
-const CONNECT_TIMEOUT_MS = 8000;
+const CONNECT_TIMEOUT_MS = 12000;
 const SYNC_FALLBACK_TIMEOUT_MS = 2500;
 const LIVENESS_PROBE_TIMEOUT_MS = 2000;
 const WAKE_DEBOUNCE_MS = 200;
@@ -425,10 +426,6 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
       setSyncProgress(0);
 
       const hostPeerId = makePeerId(session.roomCode);
-      const peer = new Peer({
-        debug: 0,
-      });
-      peerRef.current = peer;
 
       connectTimeoutRef.current = setTimeout(() => {
         if (gen !== attemptGenRef.current) return;
@@ -437,122 +434,129 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
         }
       }, CONNECT_TIMEOUT_MS);
 
-      peer.on('open', () => {
+      void getPeerConfig().then((peerConfig) => {
         if (gen !== attemptGenRef.current) return;
-        const conn = peer.connect(hostPeerId, { reliable: true });
-        connRef.current = conn;
 
-        const pc = (conn as DataConnectionWithPC).peerConnection;
-        if (pc) {
-          pc.addEventListener('iceconnectionstatechange', () => {
-            if (gen !== attemptGenRef.current) return;
-            if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
-              scheduleReconnect(gen);
-            }
-          });
-        }
+        const peer = new Peer(peerConfig);
+        peerRef.current = peer;
 
-        conn.on('open', () => {
+        peer.on('open', () => {
           if (gen !== attemptGenRef.current) return;
-          isOpeningRef.current = false;
-          if (connectTimeoutRef.current !== null) {
-            clearTimeout(connectTimeoutRef.current);
-            connectTimeoutRef.current = null;
-          }
+          const conn = peer.connect(hostPeerId, { reliable: true });
           connRef.current = conn;
-          reconnectAttemptRef.current = 0;
-          needsReconnectOnVisibleRef.current = false;
-          setError(null);
 
-          statusRef.current = 'syncing';
-          setStatus('syncing');
+          const pc = (conn as DataConnectionWithPC).peerConnection;
+          if (pc) {
+            pc.addEventListener('iceconnectionstatechange', () => {
+              if (gen !== attemptGenRef.current) return;
+              if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+                scheduleReconnect(gen);
+              }
+            });
+          }
 
-          const activeSession = desiredSessionRef.current ?? session;
-          sendMessage({
-            type: 'join',
-            name: activeSession.name,
-            gamePlayerId: activeSession.gamePlayerId,
-            deviceId: activeSession.deviceId,
+          conn.on('open', () => {
+            if (gen !== attemptGenRef.current) return;
+            isOpeningRef.current = false;
+            if (connectTimeoutRef.current !== null) {
+              clearTimeout(connectTimeoutRef.current);
+              connectTimeoutRef.current = null;
+            }
+            connRef.current = conn;
+            reconnectAttemptRef.current = 0;
+            needsReconnectOnVisibleRef.current = false;
+            setError(null);
+
+            statusRef.current = 'syncing';
+            setStatus('syncing');
+
+            const activeSession = desiredSessionRef.current ?? session;
+            sendMessage({
+              type: 'join',
+              name: activeSession.name,
+              gamePlayerId: activeSession.gamePlayerId,
+              deviceId: activeSession.deviceId,
+            });
+
+            // Re-run clock sync after every connect/reconnect
+            for (let i = 0; i < SYNC_SAMPLE_COUNT; i++) {
+              const t = setTimeout(() => {
+                if (gen !== attemptGenRef.current) return;
+                startSyncPing();
+              }, i * 100);
+              syncPingTimersRef.current.push(t);
+            }
+
+            // Fallback so a single dropped ping never stalls the UI on Syncing
+            syncFallbackTimerRef.current = setTimeout(() => {
+              if (gen !== attemptGenRef.current) return;
+              if (statusRef.current === 'syncing' && connRef.current?.open) {
+                finishSyncToJoined();
+              }
+            }, SYNC_FALLBACK_TIMEOUT_MS);
           });
 
-          // Re-run clock sync after every connect/reconnect
-          for (let i = 0; i < SYNC_SAMPLE_COUNT; i++) {
-            const t = setTimeout(() => {
-              if (gen !== attemptGenRef.current) return;
-              startSyncPing();
-            }, i * 100);
-            syncPingTimersRef.current.push(t);
-          }
-
-          // Fallback so a single dropped ping never stalls the UI on Syncing
-          syncFallbackTimerRef.current = setTimeout(() => {
+          conn.on('data', (data) => {
             if (gen !== attemptGenRef.current) return;
-            if (statusRef.current === 'syncing' && connRef.current?.open) {
-              finishSyncToJoined();
+            handleMessage(data);
+          });
+
+          conn.on('close', () => {
+            if (gen !== attemptGenRef.current) return;
+            connRef.current = null;
+            scheduleReconnect(gen);
+          });
+
+          conn.on('error', () => {
+            if (gen !== attemptGenRef.current) return;
+            connRef.current = null;
+            scheduleReconnect(gen);
+          });
+        });
+
+        peer.on('disconnected', () => {
+          if (gen !== attemptGenRef.current) return;
+          // If our WebRTC channel is already closed/unhealthy, recreate the Peer cleanly
+          if (isPeerConnectionUnhealthy(connRef.current)) {
+            scheduleReconnect(gen);
+            return;
+          }
+          // Otherwise try silent signaling reconnect without disrupting the live buzzer
+          try {
+            if (!peer.destroyed) {
+              peer.reconnect();
             }
-          }, SYNC_FALLBACK_TIMEOUT_MS);
-        });
-
-        conn.on('data', (data) => {
-          if (gen !== attemptGenRef.current) return;
-          handleMessage(data);
-        });
-
-        conn.on('close', () => {
-          if (gen !== attemptGenRef.current) return;
-          connRef.current = null;
-          scheduleReconnect(gen);
-        });
-
-        conn.on('error', () => {
-          if (gen !== attemptGenRef.current) return;
-          connRef.current = null;
-          scheduleReconnect(gen);
-        });
-      });
-
-      peer.on('disconnected', () => {
-        if (gen !== attemptGenRef.current) return;
-        // If our WebRTC channel is already closed/unhealthy, recreate the Peer cleanly
-        if (isPeerConnectionUnhealthy(connRef.current)) {
-          scheduleReconnect(gen);
-          return;
-        }
-        // Otherwise try silent signaling reconnect without disrupting the live buzzer
-        try {
-          if (!peer.destroyed) {
-            peer.reconnect();
+          } catch {
+            /* ignore */
           }
-        } catch {
-          /* ignore */
-        }
-      });
+        });
 
-      peer.on('close', () => {
-        if (gen !== attemptGenRef.current) return;
-        scheduleReconnect(gen);
-      });
+        peer.on('close', () => {
+          if (gen !== attemptGenRef.current) return;
+          scheduleReconnect(gen);
+        });
 
-      peer.on('error', (err) => {
-        if (gen !== attemptGenRef.current) return;
-        // On a brand-new manual join with an invalid room code, show error immediately
-        if (err.type === 'peer-unavailable' && !asReconnect && !hasEverJoinedRef.current) {
-          const badRoom = desiredSessionRef.current?.roomCode;
-          desiredSessionRef.current = null;
-          if (badRoom) {
-            clearPhoneIdentity(badRoom);
+        peer.on('error', (err) => {
+          if (gen !== attemptGenRef.current) return;
+          // On a brand-new manual join with an invalid room code, show error immediately
+          if (err.type === 'peer-unavailable' && !asReconnect && !hasEverJoinedRef.current) {
+            const badRoom = desiredSessionRef.current?.roomCode;
+            desiredSessionRef.current = null;
+            if (badRoom) {
+              clearPhoneIdentity(badRoom);
+            }
+            attemptGenRef.current += 1;
+            clearAllTimers();
+            destroyPeerAndConn();
+            isReconnectingRef.current = false;
+            setIsReconnecting(false);
+            statusRef.current = 'disconnected';
+            setStatus('disconnected');
+            setError('Room not found. Check the room code and try again.');
+            return;
           }
-          attemptGenRef.current += 1;
-          clearAllTimers();
-          destroyPeerAndConn();
-          isReconnectingRef.current = false;
-          setIsReconnecting(false);
-          statusRef.current = 'disconnected';
-          setStatus('disconnected');
-          setError('Room not found. Check the room code and try again.');
-          return;
-        }
-        scheduleReconnect(gen);
+          scheduleReconnect(gen);
+        });
       });
     },
     [
@@ -652,14 +656,15 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
       const peer = peerRef.current;
       const conn = connRef.current;
 
-      // If a fresh connection attempt is already in flight and PeerJS is healthy,
-      // don't interrupt it on incidental focus events (e.g. mobile keyboard dismissing).
+      // If a fresh connection attempt is already in flight (fetching TURN creds or
+      // negotiating PeerJS), don't interrupt it on incidental focus events.
+      const peerHealthyOrPending =
+        (!peer && now - lastOpenStartedRef.current < 3000) ||
+        Boolean(peer && !peer.destroyed && !peer.disconnected);
       if (
         !forceImmediateReconnect &&
         isOpeningRef.current &&
-        peer &&
-        !peer.destroyed &&
-        !peer.disconnected &&
+        peerHealthyOrPending &&
         reconnectTimerRef.current === null &&
         !needsReconnectOnVisibleRef.current
       ) {
