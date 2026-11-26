@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import qrcode from 'qrcode-generator';
 import type { UseBuzzerHostResult } from '../buzzer/useBuzzerHost';
 import type { Player } from '../types';
@@ -6,23 +6,13 @@ import './BuzzerHost.css';
 
 interface BuzzerHostProps {
   players: Player[];
-  isClueOpen: boolean;
-  isDailyDouble?: boolean;
   buzzerHost: UseBuzzerHostResult;
-  onBuzzerResult?: (
-    winnerId: string | null,
-    winnerName: string,
-    rearmFn?: () => void
-  ) => void;
   isCollapsible?: boolean;
 }
 
 export function BuzzerHost({
   players,
-  isClueOpen,
-  isDailyDouble = false,
   buzzerHost,
-  onBuzzerResult,
   isCollapsible = false,
 }: BuzzerHostProps) {
   const {
@@ -41,37 +31,7 @@ export function BuzzerHost({
     kickPlayer,
   } = buzzerHost;
 
-  const prevIsClueOpenRef = useRef(isClueOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // Auto-arm when clue opens (but not for Daily Doubles)
-  useEffect(() => {
-    if (
-      isClueOpen &&
-      !prevIsClueOpenRef.current &&
-      roomCode &&
-      state === 'waiting' &&
-      !isDailyDouble
-    ) {
-      arm();
-    }
-    // Auto-reset when clue closes
-    if (!isClueOpen && prevIsClueOpenRef.current && roomCode) {
-      reset();
-    }
-    prevIsClueOpenRef.current = isClueOpen;
-  }, [isClueOpen, roomCode, state, arm, reset, isDailyDouble]);
-
-  // Notify parent of buzz result
-  useEffect(() => {
-    if (lastResult && onBuzzerResult) {
-      onBuzzerResult(
-        lastResult.winner.gamePlayerId ?? null,
-        lastResult.winner.name,
-        rearm
-      );
-    }
-  }, [lastResult, onBuzzerResult, rearm]);
 
   // Generate QR code
   const qrDataUrl = useMemo(() => {
@@ -173,7 +133,7 @@ export function BuzzerHost({
             </span>
             <div className="buzzer-host-controls">
               {state === 'waiting' && (
-                <button type="button" className="btn small primary" onClick={arm}>
+                <button type="button" className="btn small primary" onClick={() => arm()}>
                   Arm
                 </button>
               )}

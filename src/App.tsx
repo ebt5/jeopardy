@@ -44,6 +44,55 @@ export default function App() {
   const deviceToPlayerRef = useRef<Map<string, string>>(new Map());
   const playersRef = useRef<Player[]>(config.players);
   playersRef.current = config.players;
+  const armedClueKeyRef = useRef<string | null>(null);
+
+  const activeClue =
+    active != null
+      ? config.categories[active.categoryIndex]?.clues[active.clueIndex]
+      : null;
+  const activeCategoryName =
+    active != null ? config.categories[active.categoryIndex]?.name : '';
+  const isActiveDailyDouble = activeClue?.dailyDouble === true;
+
+  // Auto-arm when a non-Daily-Double clue opens and auto-reset when it closes,
+  // regardless of whether the BuzzerHost sidebar panel is shown or hidden.
+  useEffect(() => {
+    const clueKey =
+      mode === 'play' && active != null && activeClue && !isActiveDailyDouble && buzzerHost.roomCode
+        ? `${buzzerHost.roomCode}:${active.categoryIndex}-${active.clueIndex}`
+        : null;
+
+    if (clueKey) {
+      if (armedClueKeyRef.current !== clueKey) {
+        armedClueKeyRef.current = clueKey;
+        buzzerHost.arm({ freshRound: true });
+      }
+    } else if (armedClueKeyRef.current !== null) {
+      armedClueKeyRef.current = null;
+      if (buzzerHost.roomCode) {
+        buzzerHost.reset();
+      }
+    }
+  }, [
+    mode,
+    active,
+    activeClue,
+    isActiveDailyDouble,
+    buzzerHost.roomCode,
+    buzzerHost.arm,
+    buzzerHost.reset,
+  ]);
+
+  // Propagate buzzer winner to ClueView even when the buzzer sidebar is hidden
+  useEffect(() => {
+    if (buzzerHost.lastResult) {
+      setBuzzerWinner({
+        gamePlayerId: buzzerHost.lastResult.winner.gamePlayerId ?? null,
+        name: buzzerHost.lastResult.winner.name,
+      });
+      setBuzzerControls({ rearmAfterWrong: buzzerHost.rearm });
+    }
+  }, [buzzerHost.lastResult, buzzerHost.rearm]);
 
   // Keep phone connections linked to game players across Setup, Play, and Final Jeopardy
   useEffect(() => {
@@ -104,6 +153,12 @@ export default function App() {
     setActive(null);
     setRevealed(false);
     setShowFinal(false);
+    setBuzzerWinner(null);
+    setBuzzerControls(null);
+    armedClueKeyRef.current = null;
+    if (buzzerHost.roomCode) {
+      buzzerHost.reset();
+    }
     setMode('play');
   };
 
@@ -120,6 +175,12 @@ export default function App() {
     setActive(null);
     setRevealed(false);
     setShowFinal(false);
+    setBuzzerWinner(null);
+    setBuzzerControls(null);
+    armedClueKeyRef.current = null;
+    if (buzzerHost.roomCode) {
+      buzzerHost.reset();
+    }
     setMode('setup');
   };
 
@@ -149,16 +210,6 @@ export default function App() {
     setBuzzerWinner(null);
     setBuzzerControls(null);
   }, [active]);
-
-  const handleBuzzerResult = useCallback(
-    (gamePlayerId: string | null, name: string, rearmFn?: () => void) => {
-      setBuzzerWinner({ gamePlayerId, name });
-      if (rearmFn) {
-        setBuzzerControls({ rearmAfterWrong: rearmFn });
-      }
-    },
-    []
-  );
 
   const adjustScore = (playerId: string, delta: number) => {
     setConfig((prev) => ({
@@ -210,13 +261,6 @@ export default function App() {
     );
   }
 
-  const activeClue =
-    active != null
-      ? config.categories[active.categoryIndex]?.clues[active.clueIndex]
-      : null;
-  const activeCategoryName =
-    active != null ? config.categories[active.categoryIndex]?.name : '';
-
   return (
     <div className="play">
       <header className="play-header">
@@ -247,10 +291,7 @@ export default function App() {
           <aside className="play-buzzer-sidebar">
             <BuzzerHost
               players={config.players}
-              isClueOpen={active !== null}
-              isDailyDouble={activeClue?.dailyDouble === true}
               buzzerHost={buzzerHost}
-              onBuzzerResult={handleBuzzerResult}
               isCollapsible
             />
           </aside>

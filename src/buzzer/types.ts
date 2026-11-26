@@ -62,7 +62,7 @@ export interface FinalJeopardyPhoneState {
 export type HostMessage =
   | { type: 'sync-request'; hostSendTime: number }
   | { type: 'sync-response'; hostSendTime: number; hostReceiveTime: number; phoneSendTime: number }
-  | { type: 'state-change'; state: BuzzerState; armTime?: number }
+  | { type: 'state-change'; state: BuzzerState; armTime?: number; lockedOutIds?: string[] }
   | { type: 'player-list'; players: BuzzerPlayer[] }
   | { type: 'buzz-result'; result: BuzzerRoundResult }
   | { type: 'your-status'; status: 'winner' | 'runner-up' | 'locked-out'; rank?: number }

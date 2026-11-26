@@ -242,16 +242,32 @@ async function runTest() {
       .click();
     await hostPage.waitForSelector('.play');
 
-    // Award Alice +$600
+    // Open first clue and verify connected phone buzzer immediately arms and registers a buzz
     await hostPage.locator('.board-cell:not(.played)', { hasText: '$600' }).first().click();
     await hostPage.waitForSelector('.clue-overlay');
+    await phonePage.waitForSelector('.buzzer-button.active', { timeout: 10000 });
+    assert(
+      !(await phonePage.locator('.buzzer-button').isDisabled()),
+      'Connected phone buzzer must be enabled when a clue opens',
+    );
+    assert(
+      (await phonePage.textContent('.buzzer-status-text')) === 'BUZZ NOW!',
+      'Phone status text must show BUZZ NOW! when clue opens',
+    );
+    await phonePage.click('.buzzer-button.active');
+    await hostPage.waitForSelector('.clue-buzzer-name', { timeout: 5000 });
+    assert(
+      (await hostPage.textContent('.clue-buzzer-name'))?.trim() === 'Alice',
+      'Host ClueView must display Alice as buzzer winner',
+    );
+    // Award Alice +$600
     await hostPage
       .locator('.clue-overlay .player-box', { hasText: 'Alice' })
       .locator('.score-btn.plus')
       .click();
     await hostPage.locator('.clue-close').click();
     await sleep(200);
-    console.log('   ✓ Game started and Alice awarded $600');
+    console.log('   ✓ Game started, clue armed phone buzzer, Alice buzzed in and awarded $600');
 
     console.log('3. Reloading phone page — verifying seamless auto-rejoin without name form...');
     let sawNameFormOnReload = false;
@@ -374,6 +390,60 @@ async function runTest() {
     await hostPage.locator('.clue-close').click();
     await sleep(200);
     console.log('   ✓ Phone recovered from sleep/WebRTC drop, re-acquired Wake Lock, re-synced clocks, and buzzed in with no duplicate');
+
+    console.log('4b. Verifying clue arming with hidden buzzer sidebar, wrong-answer lockout, and mid-clue reconnect...');
+    // Hide the buzzer sidebar completely (common for full-screen TV board view)
+    await hostPage.getByRole('button', { name: '📱 Buzzer' }).click();
+    await sleep(150);
+    assert(
+      (await hostPage.locator('.play-buzzer-sidebar').count()) === 0,
+      'Buzzer sidebar should be hidden after toggling 📱 Buzzer',
+    );
+
+    // Open a clue with sidebar hidden -> phone MUST still arm and buzz MUST register
+    await hostPage.locator('.board-cell:not(.played)', { hasText: '$200' }).first().click();
+    await hostPage.waitForSelector('.clue-overlay');
+    await phonePage.waitForSelector('.buzzer-button.active', { timeout: 10000 });
+    assert(
+      !(await phonePage.locator('.buzzer-button').isDisabled()),
+      'Phone buzzer must arm when a clue opens even if the buzzer sidebar is hidden',
+    );
+
+    // Reload phone MID-clue while armed -> must auto-rejoin AND immediately stay armed
+    await phonePage.reload();
+    await phonePage.waitForSelector('.buzzer-button.active', { timeout: 20000 });
+    await phonePage.click('.buzzer-button.active');
+    await hostPage.waitForSelector('.clue-buzzer-name', { timeout: 5000 });
+    assert(
+      (await hostPage.textContent('.clue-buzzer-name'))?.trim() === 'Alice',
+      'Buzz from mid-clue reconnected phone must register even with buzzer sidebar hidden',
+    );
+
+    // Mark Alice wrong -> rearm broadcasts lockedOutIds array -> Alice stays locked out
+    await hostPage
+      .locator('.clue-overlay .player-box', { hasText: 'Alice' })
+      .locator('.score-btn.minus')
+      .click();
+    await sleep(400);
+    assert(
+      await phonePage.locator('.buzzer-button').isDisabled(),
+      'Wrong-answer player must remain locked out after rearm',
+    );
+    assert(
+      (await phonePage.textContent('.buzzer-status-text')) === 'Locked out',
+      `Expected Locked out status after wrong answer, got ${await phonePage.textContent('.buzzer-status-text')}`,
+    );
+
+    // Restore Alice's +$200 so score remains $600 for subsequent checks, close clue, restore sidebar
+    await hostPage
+      .locator('.clue-overlay .player-box', { hasText: 'Alice' })
+      .locator('.score-btn.plus')
+      .click();
+    await hostPage.locator('.clue-close').click();
+    await sleep(200);
+    await hostPage.getByRole('button', { name: '📱 Buzzer' }).click();
+    await sleep(150);
+    console.log('   ✓ Hidden buzzer sidebar arming, mid-clue reconnect, and wrong-answer lockout verified');
 
     console.log('5. Testing "Not you? Change name" link...');
     await phonePage.getByRole('button', { name: 'Not you? Change name' }).click();

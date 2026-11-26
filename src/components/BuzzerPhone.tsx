@@ -430,9 +430,11 @@ export function BuzzerPhone({ roomCode }: BuzzerPhoneProps) {
         isAutoRejoin: true,
       });
     } else {
+      disconnect({ clearSaved: false });
+      setName(loadLastPlayerName());
       setHasJoined(false);
     }
-  }, [normalizedRoom, connect]);
+  }, [normalizedRoom, connect, disconnect]);
 
   useEffect(() => {
     if (status === 'disconnected' && error) {
