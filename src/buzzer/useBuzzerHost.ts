@@ -16,6 +16,7 @@ import {
   SYNC_SAMPLE_COUNT,
 } from './types';
 import { playBuzzerArmedSound, playBuzzerWinnerSound } from './sounds';
+import { getPeerConfig } from './ice-config';
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid confusing chars
@@ -89,6 +90,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
   const [isConnecting, setIsConnecting] = useState(false);
 
   const peerRef = useRef<Peer | null>(null);
+  const startGenRef = useRef<number>(0);
   const connectionsRef = useRef<Map<string, ConnectionState>>(new Map());
   const armTimeRef = useRef<number>(0);
   const pendingBuzzesRef = useRef<PendingBuzz[]>([]);
@@ -396,53 +398,60 @@ export function useBuzzerHost(): UseBuzzerHostResult {
   const startRoom = useCallback(() => {
     if (peerRef.current) return;
 
+    const gen = ++startGenRef.current;
     setIsConnecting(true);
     setError(null);
 
     const code = generateRoomCode();
     const peerId = makePeerId(code);
-    
-    const peer = new Peer(peerId, {
-      debug: 0,
-    });
 
-    peer.on('open', () => {
-      setRoomCode(code);
-      setIsConnecting(false);
-      stateRef.current = 'waiting';
-      setState('waiting');
-    });
+    void getPeerConfig().then((peerConfig) => {
+      if (gen !== startGenRef.current || peerRef.current) return;
 
-    peer.on('connection', handleConnection);
+      const peer = new Peer(peerId, peerConfig);
 
-    peer.on('disconnected', () => {
-      // Keep the host signaling channel alive so phones waking from sleep can always reconnect
-      if (!peer.destroyed) {
-        try {
-          peer.reconnect();
-        } catch {
-          /* ignore reconnect errors */
-        }
-      }
-    });
-
-    peer.on('error', (err) => {
-      console.error('Peer error:', err);
-      if (err.type === 'unavailable-id') {
-        // Room code collision, try again
-        peer.destroy();
-        peerRef.current = null;
-        setTimeout(startRoom, 100);
-      } else {
-        setError(`Connection error: ${err.message}`);
+      peer.on('open', () => {
+        if (gen !== startGenRef.current) return;
+        setRoomCode(code);
         setIsConnecting(false);
-      }
-    });
+        stateRef.current = 'waiting';
+        setState('waiting');
+      });
 
-    peerRef.current = peer;
+      peer.on('connection', handleConnection);
+
+      peer.on('disconnected', () => {
+        // Keep the host signaling channel alive so phones waking from sleep can always reconnect
+        if (!peer.destroyed) {
+          try {
+            peer.reconnect();
+          } catch {
+            /* ignore reconnect errors */
+          }
+        }
+      });
+
+      peer.on('error', (err) => {
+        if (gen !== startGenRef.current) return;
+        console.error('Peer error:', err);
+        if (err.type === 'unavailable-id') {
+          // Room code collision, try again
+          peer.destroy();
+          peerRef.current = null;
+          setTimeout(startRoom, 100);
+        } else {
+          setError(`Connection error: ${err.message}`);
+          setIsConnecting(false);
+        }
+      });
+
+      peerRef.current = peer;
+    });
   }, [handleConnection]);
 
   const stopRoom = useCallback(() => {
+    startGenRef.current += 1;
+    setIsConnecting(false);
     if (collectionTimerRef.current) {
       clearTimeout(collectionTimerRef.current);
       collectionTimerRef.current = null;
