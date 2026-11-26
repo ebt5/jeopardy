@@ -49,6 +49,16 @@ export type PhoneMessageListener = (
   msg: PhoneMessage,
 ) => void;
 
+function safeSend(conn: DataConnection, msg: HostMessage): boolean {
+  if (!conn.open) return false;
+  try {
+    conn.send(msg);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface UseBuzzerHostResult {
   roomCode: string | null;
   state: BuzzerState;
@@ -59,7 +69,7 @@ export interface UseBuzzerHostResult {
   isConnecting: boolean;
   startRoom: () => void;
   stopRoom: () => void;
-  arm: () => void;
+  arm: (options?: { freshRound?: boolean }) => void;
   reset: (lockOutWinner?: boolean) => void;
   rearm: () => void;
   kickPlayer: (peerId: string) => void;
@@ -85,6 +95,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
   const collectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const stateRef = useRef<BuzzerState>('waiting');
+  const lastResultRef = useRef<BuzzerRoundResult | null>(null);
   const lockedOutIdsRef = useRef<Set<string>>(new Set());
   const phoneMessageListenersRef = useRef<Set<PhoneMessageListener>>(new Set());
 
@@ -97,16 +108,16 @@ export function useBuzzerHost(): UseBuzzerHostResult {
 
   const broadcast = useCallback((msg: HostMessage, exclude?: string) => {
     for (const [peerId, { conn }] of connectionsRef.current) {
-      if (peerId !== exclude && conn.open) {
-        conn.send(msg);
+      if (peerId !== exclude) {
+        safeSend(conn, msg);
       }
     }
   }, []);
 
   const sendTo = useCallback((peerId: string, msg: HostMessage) => {
-    const state = connectionsRef.current.get(peerId);
-    if (state?.conn.open) {
-      state.conn.send(msg);
+    const connState = connectionsRef.current.get(peerId);
+    if (connState) {
+      safeSend(connState.conn, msg);
     }
   }, []);
 
@@ -124,9 +135,7 @@ export function useBuzzerHost(): UseBuzzerHostResult {
     if (existing) clearInterval(existing);
 
     const doSync = () => {
-      if (conn.open) {
-        conn.send({ type: 'sync-request', hostSendTime: performance.now() } as HostMessage);
-      }
+      safeSend(conn, { type: 'sync-request', hostSendTime: performance.now() });
     };
 
     // Initial sync burst
@@ -141,15 +150,32 @@ export function useBuzzerHost(): UseBuzzerHostResult {
 
   const handleConnection = useCallback((conn: DataConnection) => {
     const peerId = conn.peer;
-    
-    conn.on('open', () => {
+    let opened = false;
+
+    const onOpen = () => {
+      if (opened) return;
+      opened = true;
       connectionsRef.current.set(peerId, { conn, player: null, syncSamples: 0 });
       startSyncWithConnection(peerId, conn);
       // Send current state
-      conn.send({ type: 'state-change', state: stateRef.current, armTime: armTimeRef.current } as HostMessage);
-    });
+      safeSend(conn, {
+        type: 'state-change',
+        state: stateRef.current,
+        armTime: armTimeRef.current,
+        lockedOutIds: Array.from(lockedOutIdsRef.current),
+      });
+    };
+
+    if (conn.open) {
+      onOpen();
+    } else {
+      conn.on('open', onOpen);
+    }
 
     conn.on('data', (data) => {
+      if (!opened && conn.open) {
+        onOpen();
+      }
       const msg = data as PhoneMessage;
       const connState = connectionsRef.current.get(peerId);
       if (!connState) return;
@@ -203,17 +229,29 @@ export function useBuzzerHost(): UseBuzzerHostResult {
             deviceId: msg.deviceId,
           };
           updatePlayerList();
+
+          // Always re-sync authoritative buzzer state after join/reconnect so the phone
+          // reflects armed/locked/waiting status accurately even after sleep/wake.
+          safeSend(conn, {
+            type: 'state-change',
+            state: stateRef.current,
+            armTime: armTimeRef.current,
+            lockedOutIds: Array.from(lockedOutIdsRef.current),
+          });
+          if (lockedOutIdsRef.current.has(peerId)) {
+            safeSend(conn, { type: 'your-status', status: 'locked-out' });
+          }
           break;
         }
 
         case 'sync-ping': {
           const hostReceiveTime = performance.now();
-          conn.send({
+          safeSend(conn, {
             type: 'sync-response',
             hostSendTime: performance.now(),
             hostReceiveTime,
             phoneSendTime: msg.phoneSendTime,
-          } as HostMessage);
+          });
           connState.syncSamples++;
           break;
         }
@@ -327,14 +365,17 @@ export function useBuzzerHost(): UseBuzzerHostResult {
       lockedOutIds: Array.from(lockedOutIdsRef.current),
     };
 
+    lastResultRef.current = result;
     setLastResult(result);
     stateRef.current = 'locked';
     setState('locked');
-    
-    playBuzzerWinnerSound();
-    
+
     broadcast({ type: 'buzz-result', result });
-    broadcast({ type: 'state-change', state: 'locked' });
+    broadcast({
+      type: 'state-change',
+      state: 'locked',
+      lockedOutIds: Array.from(lockedOutIdsRef.current),
+    });
 
     // Send individual status to each player
     sendTo(winner.peerId, { type: 'your-status', status: 'winner' });
@@ -348,6 +389,8 @@ export function useBuzzerHost(): UseBuzzerHostResult {
         sendTo(peerId, { type: 'your-status', status: 'locked-out' });
       }
     }
+
+    playBuzzerWinnerSound();
   }, [broadcast, sendTo]);
 
   const startRoom = useCallback(() => {
@@ -424,22 +467,40 @@ export function useBuzzerHost(): UseBuzzerHostResult {
     stateRef.current = 'waiting';
     setState('waiting');
     setPlayers([]);
+    lastResultRef.current = null;
     setLastResult(null);
     lockedOutIdsRef.current = new Set();
     setLockedOutIds(new Set());
     pendingBuzzesRef.current = [];
   }, []);
 
-  const arm = useCallback(() => {
-    if (stateRef.current === 'armed') return;
-    
+  const arm = useCallback((options?: { freshRound?: boolean }) => {
+    const freshRound = options?.freshRound === true;
+
+    if (collectionTimerRef.current) {
+      clearTimeout(collectionTimerRef.current);
+      collectionTimerRef.current = null;
+    }
+
+    if (freshRound) {
+      lockedOutIdsRef.current = new Set();
+      setLockedOutIds(new Set());
+      lastResultRef.current = null;
+      setLastResult(null);
+    }
+
     armTimeRef.current = performance.now();
     stateRef.current = 'armed';
     setState('armed');
     pendingBuzzesRef.current = [];
-    
+
+    broadcast({
+      type: 'state-change',
+      state: 'armed',
+      armTime: armTimeRef.current,
+      lockedOutIds: Array.from(lockedOutIdsRef.current),
+    });
     playBuzzerArmedSound();
-    broadcast({ type: 'state-change', state: 'armed', armTime: armTimeRef.current });
   }, [broadcast]);
 
   const reset = useCallback((lockOutWinner = false) => {
@@ -448,8 +509,9 @@ export function useBuzzerHost(): UseBuzzerHostResult {
       collectionTimerRef.current = null;
     }
 
-    if (lockOutWinner && lastResult) {
-      const newSet = new Set([...lockedOutIdsRef.current, lastResult.winner.peerId]);
+    const currentLast = lastResultRef.current;
+    if (lockOutWinner && currentLast) {
+      const newSet = new Set([...lockedOutIdsRef.current, currentLast.winner.peerId]);
       lockedOutIdsRef.current = newSet;
       setLockedOutIds(newSet);
     } else {
@@ -459,33 +521,45 @@ export function useBuzzerHost(): UseBuzzerHostResult {
 
     stateRef.current = 'waiting';
     setState('waiting');
+    lastResultRef.current = null;
     setLastResult(null);
     pendingBuzzesRef.current = [];
-    broadcast({ type: 'state-change', state: 'waiting' });
-  }, [lastResult, broadcast]);
+    broadcast({
+      type: 'state-change',
+      state: 'waiting',
+      lockedOutIds: Array.from(lockedOutIdsRef.current),
+    });
+  }, [broadcast]);
 
   const rearm = useCallback(() => {
-    if (lastResult) {
-      const newSet = new Set([...lockedOutIdsRef.current, lastResult.winner.peerId]);
+    const currentLast = lastResultRef.current;
+    if (currentLast) {
+      const newSet = new Set([...lockedOutIdsRef.current, currentLast.winner.peerId]);
       lockedOutIdsRef.current = newSet;
       setLockedOutIds(newSet);
     }
-    
+
+    lastResultRef.current = null;
     setLastResult(null);
-    
+
     if (collectionTimerRef.current) {
       clearTimeout(collectionTimerRef.current);
       collectionTimerRef.current = null;
     }
-    
+
     pendingBuzzesRef.current = [];
     armTimeRef.current = performance.now();
     stateRef.current = 'armed';
     setState('armed');
-    
+
+    broadcast({
+      type: 'state-change',
+      state: 'armed',
+      armTime: armTimeRef.current,
+      lockedOutIds: Array.from(lockedOutIdsRef.current),
+    });
     playBuzzerArmedSound();
-    broadcast({ type: 'state-change', state: 'armed', armTime: armTimeRef.current });
-  }, [lastResult, broadcast]);
+  }, [broadcast]);
 
   const kickPlayer = useCallback((peerId: string) => {
     const connState = connectionsRef.current.get(peerId);

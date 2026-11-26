@@ -33,7 +33,11 @@ export function normalizeGameConfig(parsed: Partial<GameConfig>): GameConfig | n
         played: Boolean(cl.played),
       })),
     })),
-    players: parsed.players,
+    players: parsed.players.map((p) => ({
+      ...p,
+      // PeerJS IDs are ephemeral per host session; strip stale ones loaded from localStorage
+      buzzerPeerId: undefined,
+    })),
     finalJeopardy: normalizeFinalJeopardy(parsed.finalJeopardy),
     boardName: typeof parsed.boardName === 'string' ? parsed.boardName : undefined,
   };

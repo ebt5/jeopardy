@@ -251,10 +251,19 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
             armTimeRef.current = msg.armTime;
           }
 
+          const myPeerId = peerRef.current?.id;
+          const lockedList = Array.isArray(msg.lockedOutIds) ? msg.lockedOutIds : [];
+          const isLockedOut = Boolean(myPeerId && lockedList.includes(myPeerId));
+
           if (msg.state === 'armed') {
-            hasBuzzedRef.current = false;
-            setBuzzStatus('armed');
-            vibrate(30);
+            if (isLockedOut) {
+              hasBuzzedRef.current = true;
+              setBuzzStatus('locked-out');
+            } else {
+              hasBuzzedRef.current = false;
+              setBuzzStatus('armed');
+              vibrate(30);
+            }
           } else if (msg.state === 'waiting') {
             hasBuzzedRef.current = false;
             setBuzzStatus('waiting');
@@ -264,7 +273,7 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
               setBuzzStatus('buzzed');
             }
           } else if (msg.state === 'locked') {
-            if (!hasBuzzedRef.current) {
+            if (!hasBuzzedRef.current || isLockedOut) {
               setBuzzStatus('locked-out');
             }
           }
@@ -412,6 +421,7 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
       }
       clockSyncRef.current.reset();
       pendingSyncRef.current = null;
+      hasBuzzedRef.current = false;
       setSyncProgress(0);
 
       const hostPeerId = makePeerId(session.roomCode);
@@ -711,7 +721,7 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
   }, [startSyncPing]);
 
   const buzz = useCallback(() => {
-    if (state !== 'armed' || hasBuzzedRef.current) return;
+    if (state !== 'armed' || buzzStatus !== 'armed' || hasBuzzedRef.current) return;
 
     hasBuzzedRef.current = true;
     const localTimestamp = performance.now();
@@ -725,7 +735,7 @@ export function useBuzzerPhone(): UseBuzzerPhoneResult {
 
     setBuzzStatus('buzzed');
     vibrate(50);
-  }, [state, sendMessage]);
+  }, [state, buzzStatus, sendMessage]);
 
   const submitFinalWager = useCallback(
     (wager: number) => {

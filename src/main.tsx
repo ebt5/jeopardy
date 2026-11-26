@@ -1,10 +1,9 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { BuzzerPhone } from './components/BuzzerPhone';
 
-function parseHashRoute(): { path: string; params: URLSearchParams } {
-  const hash = window.location.hash;
+function parseHashRoute(hash: string): { path: string; params: URLSearchParams } {
   if (!hash || hash === '#') {
     return { path: '/', params: new URLSearchParams() };
   }
@@ -16,7 +15,15 @@ function parseHashRoute(): { path: string; params: URLSearchParams } {
 }
 
 function Root() {
-  const { path, params } = parseHashRoute();
+  const [hash, setHash] = useState(() => window.location.hash);
+
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const { path, params } = parseHashRoute(hash);
 
   if (path === '/buzz') {
     const roomCode = params.get('room');
