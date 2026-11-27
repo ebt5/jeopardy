@@ -1,0 +1,251 @@
+{
+  "name": "Reynolds Family TG",
+  "savedAt": "2026-11-27T10:00:00-07:00",
+  "categories": [
+    {
+      "name": "THANKSGIVING DINNER AT THE MOVIES",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "This beagle serves jelly beans and toast for Thanksgiving dinner in a 1973 animated special",
+          "question": "Who is Snoopy?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "Steve Martin and John Candy endure a disastrous trip home for Thanksgiving dinner in this 1987 comedy",
+          "question": "What is Planes, Trains and Automobiles?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "Sandra Bullock's character turns off the football game so her family can join Michael Oher at the Thanksgiving table in this 2009 film",
+          "question": "What is The Blind Side?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "At a 2002 Thanksgiving dinner, Norman Osborn notices a cut on Peter Parker's arm and figures out his secret in this superhero film",
+          "question": "What is Spider-Man?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "In this 1976 boxing classic, Paulie angrily hurls the Thanksgiving turkey out into the alley",
+          "question": "What is Rocky?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "THANKS A LOT",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "This pop star thanked her exes and moved on in her 2018 hit \"thank u, next\"",
+          "question": "Who is Ariana Grande?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "In Moana, Maui sings this 2-word song, the polite reply to \"thank you\"",
+          "question": "What is \"You're Welcome\"?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "\"Thank You for Being a Friend\" is the theme song of this sitcom about four women sharing a house in Miami",
+          "question": "What is The Golden Girls?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "This Swedish supergroup of \"Dancing Queen\" fame also sang \"Thank You for the Music\"",
+          "question": "Who is ABBA?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "Eminem's 2000 hit \"Stan\" samples the song \"Thank You\" by this one-named British singer",
+          "question": "Who is Dido?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "GOBBLE GOBBLE",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Historians agree no Thanksgiving in recorded history has been complete without this beloved masterpiece of green legumes, cream of mushroom soup and a crown of crunchy fried onions",
+          "question": "What is green bean casserole?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "This tart red sauce often slides out of the can still showing the ridges",
+          "question": "What is cranberry sauce?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "It's the fleshy flap that dangles over a turkey's beak",
+          "question": "What is a snood?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Each year the President spares a turkey's life in this White House ceremony",
+          "question": "What is the turkey pardon?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "This Founding Father famously wrote that the turkey was \"a much more respectable bird\" than the bald eagle",
+          "question": "Who is Benjamin Franklin?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "PARADES & PIGSKIN",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "This department store has run New York City's famous Thanksgiving Day Parade since 1924",
+          "question": "What is Macy's?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "This Motor City NFL team has hosted a Thanksgiving game nearly every year since 1934",
+          "question": "Who are the Detroit Lions?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "Before the Super Bowl existed, this legendary Green Bay coach won five NFL championships in the 1960s",
+          "question": "Who is Vince Lombardi?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Kris Kringle plays Santa in the Macy's Thanksgiving parade at the start of this 1947 holiday film",
+          "question": "What is Miracle on 34th Street?",
+          "played": false,
+          "dailyDouble": true
+        },
+        {
+          "value": 1000,
+          "answer": "Worth 2 points, it's scored when the offense gets tackled in its own end zone",
+          "question": "What is a safety?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "RHYME TIME",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Dried, chewy snack meat made from a gobbler",
+          "question": "What is turkey jerky?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "The brown sauce served to sailors",
+          "question": "What is navy gravy?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "The fellow in charge of baking dessert",
+          "question": "Who is the pie guy?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "A big animal served at the holiday meal",
+          "question": "What is a feast beast?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "Bread cubes that are only pretending",
+          "question": "What is bluffing stuffing?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "FAMOUS FAMILIES",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Homer, Marge, Bart, Lisa and Maggie",
+          "question": "Who are the Simpsons?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "Bob, Helen, Violet, Dash and baby Jack-Jack, also known as The Incredibles",
+          "question": "Who are the Parrs?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "Harry Potter's best friend Ron belongs to this red-headed wizarding family",
+          "question": "Who are the Weasleys?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Everyone in this Encanto family gets a magical gift except Mirabel",
+          "question": "Who are the Madrigals?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "\"Here's the story of a lovely lady\" begins the theme song for this 1970s TV family with six kids",
+          "question": "Who are the Bradys?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    }
+  ],
+  "finalJeopardy": {
+    "category": "PRESIDENTS",
+    "answer": "Critics called it 'Franksgiving' when this president moved the holiday up a week in 1939 to stretch the Christmas shopping season",
+    "question": "Who is Franklin D. Roosevelt?"
+  }
+}

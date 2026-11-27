@@ -1,9 +1,6 @@
 import type { FinalJeopardy, GameConfig, SavedBoard } from './types';
 import familyThanksgiving from './boards/family-thanksgiving-2026.json';
-
-export const PRESET_BOARDS: (SavedBoard & { slug: string })[] = [
-  { id: 'preset-family-thanksgiving-2026', slug: 'thanksgiving', ...(familyThanksgiving as Omit<SavedBoard, 'id'>) },
-];
+import reynoldsFamilyTg from './boards/reynolds-family-tg.json';
 import {
   API_KEY_STORAGE,
   DEFAULT_FINAL_JEOPARDY,
@@ -11,6 +8,11 @@ import {
   STORAGE_KEY,
 } from './types';
 import { createBlankGame } from './demo';
+
+export const PRESET_BOARDS: (SavedBoard & { slug: string })[] = [
+  { id: 'preset-family-thanksgiving-2026', slug: 'thanksgiving', ...(familyThanksgiving as Omit<SavedBoard, 'id'>) },
+  { id: 'preset-reynolds-family-tg', slug: 'reynolds', ...(reynoldsFamilyTg as Omit<SavedBoard, 'id'>) },
+];
 
 function normalizeFinalJeopardy(raw: unknown): FinalJeopardy {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_FINAL_JEOPARDY };
