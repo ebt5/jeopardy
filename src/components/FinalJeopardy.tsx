@@ -154,6 +154,10 @@ export function FinalJeopardyView({
   secondsLeftRef.current = secondsLeft;
   const musicEnabledRef = useRef(musicEnabled);
   musicEnabledRef.current = musicEnabled;
+  // useBuzzerHost() returns a new object every render — keep a ref so unmount
+  // cleanup does NOT re-run (and kill think music) on every parent re-render.
+  const buzzerHostRef = useRef(buzzerHost);
+  buzzerHostRef.current = buzzerHost;
   const lastSentStateRef = useRef<Map<string, string>>(new Map());
 
   const stopAllThinkMusic = useCallback((resetPosition = false) => {
@@ -208,6 +212,7 @@ export function FinalJeopardyView({
         return;
       }
 
+      // Always (re)start synth from the requested offset after an explicit stop/pause.
       if (musicPlayingRef.current !== 'synth') {
         musicPlayingRef.current = 'synth';
         synthStopRef.current = startFinalJeopardyThinkMusic(elapsedSeconds);
@@ -327,16 +332,20 @@ export function FinalJeopardyView({
     }
   }, [session, players, buzzerHost, secondsLeft, timerRunning]);
 
-  // Clear Final Jeopardy screen on phones and stop music when leaving Final Jeopardy
+  // Clear Final Jeopardy screen on phones and stop music ONLY when leaving Final Jeopardy.
+  // Must NOT depend on `buzzerHost` identity — useBuzzerHost() returns a new object each
+  // render, and depending on it previously stopped think music a few seconds in whenever
+  // PeerJS sync / player state caused App to re-render.
   useEffect(() => {
     return () => {
       stopAllThinkMusic(true);
       lastSentStateRef.current.clear();
-      if (buzzerHost?.roomCode) {
-        buzzerHost.broadcastMessage({ type: 'fj-state', state: null });
+      const host = buzzerHostRef.current;
+      if (host?.roomCode) {
+        host.broadcastMessage({ type: 'fj-state', state: null });
       }
     };
-  }, [buzzerHost, stopAllThinkMusic]);
+  }, [stopAllThinkMusic]);
 
   // Listen for phone fj-wager and fj-response messages
   useEffect(() => {
@@ -418,12 +427,14 @@ export function FinalJeopardyView({
     return () => window.clearInterval(id);
   }, [timerRunning, step, stopAllThinkMusic]);
 
-  // Ensure music stops if timer pauses, finishes, or host leaves clue step
+  // Ensure music stops if timer pauses, music is muted, or host leaves clue step.
+  // Do NOT depend on `secondsLeft` — that re-runs every tick and previously made it
+  // easy to accidentally tear music down. Time-up stop is handled in the interval.
   useEffect(() => {
-    if (!timerRunning || !musicEnabled || step !== 'clue' || secondsLeft <= 0) {
+    if (!timerRunning || !musicEnabled || step !== 'clue') {
       stopAllThinkMusic(false);
     }
-  }, [timerRunning, musicEnabled, step, secondsLeft, stopAllThinkMusic]);
+  }, [timerRunning, musicEnabled, step, stopAllThinkMusic]);
 
   // Escape shortcut
   useEffect(() => {

@@ -72,7 +72,6 @@ export function playDailyDoubleSound(): void {
 
 // Note frequency helpers for the original 60-second think tune (120 BPM = 120 beats)
 const N = {
-  // Bass / low octave
   A2: 110.0,
   B2: 123.47,
   C3: 130.81,
@@ -82,18 +81,18 @@ const N = {
   F3: 174.61,
   Fs3: 185.0,
   G3: 196.0,
+  Gs3: 207.65,
   A3: 220.0,
   B3: 246.94,
-  // Mid chord tones
   C4: 261.63,
   D4: 293.66,
   E4: 329.63,
   F4: 349.23,
   Fs4: 369.99,
   G4: 392.0,
+  Gs4: 415.3,
   A4: 440.0,
   B4: 493.88,
-  // Lead marimba octave
   C5: 523.25,
   Cs5: 554.37,
   D5: 587.33,
@@ -101,67 +100,76 @@ const N = {
   F5: 698.46,
   Fs5: 739.99,
   G5: 783.99,
+  Gs5: 830.61,
   A5: 880.0,
   B5: 987.77,
   C6: 1046.5,
+  D6: 1174.66,
 } as const;
 
-// 120-beat (60-second) original 4-part progression at 120 BPM (0.5s/beat):
-// - Section 1 (beats 0-31,  0-16s): Warm inquisitive motif in C major / A minor
-// - Section 2 (beats 32-63, 16-32s): Expressive answer phrase with gentle chord pads
-// - Section 3 (beats 64-95, 32-48s): Bright whole-step lift to D major / B minor
-// - Section 4 (beats 96-119, 48-60s): Rising final-12-seconds tension resolving into time-up
+/**
+ * Original quiz-show think tune (NOT the copyrighted Merv Griffin "Think!" melody).
+ * 120 beats at 120 BPM = 60 seconds. Built as looping 8-bar phrases with a late build.
+ *
+ * Sections:
+ *  0–16s  (beats 0–31):   bouncy C-major / Am motif + crisp clock ticks
+ * 16–32s  (beats 32–63):  answer-phrase variation with warm pads
+ * 32–45s  (beats 64–89):  whole-step lift (D major) for second-half energy
+ * 45–60s  (beats 90–119): tension climb into the final 15s, resolving into the time-up sting
+ */
 const THINK_MELODY_120: ReadonlyArray<number | null> = [
-  // Section 1 (32 beats — C / Am / F / G)
-  N.E5, N.G5, N.A5, N.G5,  N.E5, N.D5, N.C5, null,
-  N.D5, N.E5, N.G5, N.E5,  N.D5, N.C5, N.A4, null,
-  N.C5, N.E5, N.F5, N.E5,  N.D5, N.F5, N.A5, N.G5,
-  N.E5, N.D5, N.E5, N.G5,  N.D5, null, N.C5, null,
+  // Phrase A (8 bars / 16 beats) — quirky call
+  N.E5, N.G5, null, N.E5,  N.D5, N.E5, N.C5, null,
+  N.D5, N.F5, null, N.D5,  N.C5, N.D5, N.A4, null,
+  // Phrase A' — answer
+  N.E5, N.G5, N.A5, N.G5,  N.E5, N.D5, N.C5, N.E5,
+  N.D5, null, N.C5, N.E5,  N.G5, N.E5, N.D5, null,
 
-  // Section 2 (32 beats — F / G / Em / Am / Dm / G7 / C)
-  N.A5, N.G5, N.F5, N.E5,  N.F5, N.A5, N.G5, null,
-  N.G5, N.E5, N.D5, N.C5,  N.E5, N.G5, N.A5, null,
-  N.F5, N.E5, N.D5, N.F5,  N.E5, N.D5, N.C5, N.E5,
-  N.D5, N.F5, N.G5, N.E5,  N.D5, N.B4, N.C5, null,
+  // Phrase B (8 bars) — warmer harmonic turn
+  N.A5, null, N.G5, N.F5,  N.E5, N.F5, N.A5, null,
+  N.G5, null, N.E5, N.D5,  N.C5, N.E5, N.G5, null,
+  N.F5, N.A5, N.G5, N.E5,  N.D5, N.F5, N.E5, N.C5,
+  N.D5, N.E5, N.G5, null,  N.D5, N.B4, N.C5, null,
 
-  // Section 3 (32 beats — modulates up to D major / B minor for second-half lift)
-  N.Fs5, N.A5, N.B5, N.A5,  N.Fs5, N.E5, N.D5, null,
-  N.E5, N.Fs5, N.A5, N.Fs5, N.E5, N.D5, N.B4, null,
-  N.D5, N.Fs5, N.G5, N.Fs5, N.E5, N.G5, N.B5, N.A5,
-  N.Fs5, N.E5, N.Fs5, N.A5, N.E5, null, N.D5, null,
+  // Phrase C — lifted to D major (second half)
+  N.Fs5, N.A5, null, N.Fs5, N.E5, N.Fs5, N.D5, null,
+  N.E5, N.G5, null, N.E5,   N.D5, N.E5, N.B4, null,
+  N.Fs5, N.A5, N.B5, N.A5,  N.Fs5, N.E5, N.D5, N.Fs5,
+  N.E5, null, N.D5, N.Fs5,  N.A5, N.Fs5, N.E5, null,
 
-  // Section 4 (24 beats — final 12 seconds rising anticipation -> resolves cleanly at 60s)
+  // Final 15s tension climb (beats 96–119 = last 12s of melody + lead-in)
+  // beats 90–95 continue phrase C cadence, then 96–119 build
   N.G5, N.Fs5, N.E5, N.G5,  N.A5, N.G5, N.Fs5, N.A5,
-  N.B5, N.A5, N.G5, N.B5,   N.A5, N.G5, N.Fs5, N.E5,
-  N.Fs5, N.G5, N.A5, N.B5,  N.A5, N.G5, N.Fs5, N.E5,
+  N.B5, N.A5, N.G5, N.B5,   N.C6, N.B5, N.A5, N.G5,
+  N.A5, N.B5, N.C6, N.D6,   N.C6, N.B5, N.A5, N.G5,
 ];
 
 const THINK_BASS_120: ReadonlyArray<number> = [
-  // Section 1
+  // Phrase A — C / Am / F / G
   N.C3, N.C3, N.G3, N.G3,   N.A2, N.A2, N.E3, N.E3,
   N.F3, N.F3, N.C3, N.C3,   N.G3, N.G3, N.D3, N.G3,
-  N.C3, N.C3, N.F3, N.F3,   N.D3, N.D3, N.G3, N.G3,
-  N.A2, N.A2, N.F3, N.F3,   N.G3, N.G3, N.C3, N.G3,
+  N.C3, N.C3, N.G3, N.G3,   N.A2, N.A2, N.E3, N.E3,
+  N.F3, N.F3, N.G3, N.G3,   N.C3, N.G3, N.C3, N.G3,
 
-  // Section 2
+  // Phrase B — F / G / Em / Am / Dm / G / C
   N.F3, N.F3, N.C3, N.C3,   N.G3, N.G3, N.D3, N.D3,
   N.E3, N.E3, N.B2, N.B2,   N.A2, N.A2, N.E3, N.E3,
   N.D3, N.D3, N.A2, N.A2,   N.G3, N.G3, N.C3, N.E3,
   N.F3, N.F3, N.G3, N.G3,   N.G3, N.B2, N.C3, N.G3,
 
-  // Section 3 (D major)
+  // Phrase C — D major lift
   N.D3, N.D3, N.A3, N.A3,   N.B2, N.B2, N.Fs3, N.Fs3,
   N.G3, N.G3, N.D3, N.D3,   N.A3, N.A3, N.E3, N.A3,
-  N.D3, N.D3, N.G3, N.G3,   N.E3, N.E3, N.A3, N.A3,
-  N.B2, N.B2, N.G3, N.G3,   N.A3, N.A3, N.D3, N.A3,
+  N.D3, N.D3, N.A3, N.A3,   N.B2, N.B2, N.Fs3, N.Fs3,
+  N.G3, N.G3, N.A3, N.A3,   N.D3, N.A3, N.D3, N.A3,
 
-  // Section 4 (Final 12 seconds build)
+  // Final climb — rising bass root motion
   N.G3, N.G3, N.E3, N.E3,   N.Fs3, N.Fs3, N.D3, N.D3,
   N.G3, N.G3, N.E3, N.E3,   N.A3, N.A3, N.E3, N.A3,
   N.D3, N.E3, N.Fs3, N.G3,  N.A3, N.A3, N.A3, N.A3,
 ];
 
-// Gentle chord pad root every 4 beats in sections 2-4 to keep the 60s track warm & evolving
+// Warm chord pads every 4 beats from phrase B onward
 const PAD_CHORDS: Record<number, ReadonlyArray<number>> = {
   32: [N.F4, N.A4, N.C5],
   36: [N.G4, N.B4, N.D5],
@@ -172,20 +180,68 @@ const PAD_CHORDS: Record<number, ReadonlyArray<number>> = {
   56: [N.F4, N.A4, N.C5],
   60: [N.G4, N.B4, N.D5],
   64: [N.D4, N.Fs4, N.A4],
-  68: [N.B4, N.D5, N.Fs5],
+  68: [N.B3, N.D4, N.Fs4],
   72: [N.G4, N.B4, N.D5],
   76: [N.A4, N.Cs5, N.E5],
   80: [N.D4, N.Fs4, N.A4],
-  84: [N.E4, N.G4, N.B4],
-  88: [N.B4, N.D5, N.Fs5],
+  84: [N.B3, N.D4, N.Fs4],
+  88: [N.G4, N.B4, N.D5],
   92: [N.A4, N.Cs5, N.E5],
   96: [N.G4, N.B4, N.D5],
-  100: [N.Fs4, N.A4, N.D5],
-  104: [N.G4, N.B4, N.E5],
-  108: [N.A4, N.Cs5, N.E5],
-  112: [N.D4, N.Fs4, N.A4],
-  116: [N.A4, N.Cs5, N.E5],
+  100: [N.E4, N.G4, N.B4],
+  104: [N.Fs4, N.A4, N.D5],
+  108: [N.G4, N.B4, N.E5],
+  112: [N.A4, N.Cs5, N.E5],
+  116: [N.A4, N.D5, N.Fs5],
 };
+
+export interface ThinkMusicDiagnostics {
+  active: boolean;
+  startCount: number;
+  stopCount: number;
+  beatsScheduled: number;
+  lastStartFromSeconds: number | null;
+  startedAtMs: number | null;
+}
+
+const thinkMusicDiagnostics: ThinkMusicDiagnostics = {
+  active: false,
+  startCount: 0,
+  stopCount: 0,
+  beatsScheduled: 0,
+  lastStartFromSeconds: null,
+  startedAtMs: null,
+};
+
+export function getThinkMusicDiagnostics(): ThinkMusicDiagnostics {
+  return { ...thinkMusicDiagnostics };
+}
+
+export function resetThinkMusicDiagnostics(): void {
+  thinkMusicDiagnostics.active = false;
+  thinkMusicDiagnostics.startCount = 0;
+  thinkMusicDiagnostics.stopCount = 0;
+  thinkMusicDiagnostics.beatsScheduled = 0;
+  thinkMusicDiagnostics.lastStartFromSeconds = null;
+  thinkMusicDiagnostics.startedAtMs = null;
+}
+
+function attachThinkMusicTestHook(): void {
+  if (typeof window === 'undefined') return;
+  (
+    window as unknown as {
+      __JEOPARDY_THINK_MUSIC__?: {
+        getDiagnostics: typeof getThinkMusicDiagnostics;
+        reset: typeof resetThinkMusicDiagnostics;
+      };
+    }
+  ).__JEOPARDY_THINK_MUSIC__ = {
+    getDiagnostics: getThinkMusicDiagnostics,
+    reset: resetThinkMusicDiagnostics,
+  };
+}
+
+attachThinkMusicTestHook();
 
 /**
  * Starts an original 60-second synthesized clockwork/marimba "think" tune for Final Jeopardy.
@@ -198,103 +254,158 @@ export function startFinalJeopardyThinkMusic(startFromSeconds = 0): () => void {
 
   let stopped = false;
   const master = audioCtx.createGain();
-  master.gain.value = 0.24;
+  // Living-room TV friendly level — present but not overpowering dialogue
+  master.gain.value = 0.22;
   master.connect(audioCtx.destination);
 
   const beatDuration = 0.5; // 120 BPM -> 120 beats = 60 seconds
-  let step = Math.max(0, Math.floor(startFromSeconds / beatDuration)) % THINK_MELODY_120.length;
-  let nextNoteTime = audioCtx.currentTime + 0.04;
+  const totalBeats = THINK_MELODY_120.length;
+  let step = Math.max(0, Math.floor(startFromSeconds / beatDuration)) % totalBeats;
+  let nextNoteTime = audioCtx.currentTime + 0.03;
 
-  const scheduleTick = (time: number, freq: number, peak: number) => {
+  thinkMusicDiagnostics.active = true;
+  thinkMusicDiagnostics.startCount += 1;
+  thinkMusicDiagnostics.lastStartFromSeconds = startFromSeconds;
+  thinkMusicDiagnostics.startedAtMs = Date.now();
+  // beatsScheduled is cumulative across pause/resume within a diagnostics session
+  // (reset only via resetThinkMusicDiagnostics) so E2E can assert continued scheduling.
+
+  const scheduleNoiseTick = (time: number, peak: number, dur: number) => {
+    // Short filtered-noise burst ≈ woodblock / brushed snare tip
+    const bufferSize = Math.max(1, Math.floor(audioCtx.sampleRate * dur));
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 3200;
+    filter.Q.value = 4;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(peak, time + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    src.connect(filter).connect(gain).connect(master);
+    src.start(time);
+    src.stop(time + dur + 0.01);
+  };
+
+  const scheduleToneTick = (time: number, freq: number, peak: number) => {
     const tickOsc = audioCtx.createOscillator();
     const tickGain = audioCtx.createGain();
     tickOsc.type = 'sine';
     tickOsc.frequency.value = freq;
     tickGain.gain.setValueAtTime(0.0001, time);
-    tickGain.gain.exponentialRampToValueAtTime(peak, time + 0.004);
-    tickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.042);
+    tickGain.gain.exponentialRampToValueAtTime(peak, time + 0.003);
+    tickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.038);
     tickOsc.connect(tickGain).connect(master);
     tickOsc.start(time);
-    tickOsc.stop(time + 0.05);
+    tickOsc.stop(time + 0.045);
   };
 
   const scheduleBeat = (time: number, beatIndex: number) => {
-    const idx = beatIndex % THINK_MELODY_120.length;
+    const idx = beatIndex % totalBeats;
     const mel = THINK_MELODY_120[idx];
     const bass = THINK_BASS_120[idx];
-    const inFinalStretch = idx >= 100; // Final 10 seconds
+    const inBuild = idx >= 90; // last ~15 seconds
+    const inFinalStretch = idx >= 100; // last ~10 seconds
 
-    // Gentle clockwork woodblock tick-tock on every beat
-    scheduleTick(time, beatIndex % 2 === 0 ? 1040 : 820, inFinalStretch ? 0.17 : 0.12);
+    // Crisp clock-tick: woodblock-ish noise on every beat + pitched tick-tock
+    scheduleNoiseTick(time, inFinalStretch ? 0.11 : 0.075, inFinalStretch ? 0.045 : 0.035);
+    scheduleToneTick(time, beatIndex % 2 === 0 ? 1180 : 880, inFinalStretch ? 0.14 : 0.1);
 
-    // Subtle off-beat pulse in the last 10 seconds for crisp game-show energy
+    // Subtle off-beat brushed pulse in the final stretch
     if (inFinalStretch) {
-      scheduleTick(time + beatDuration * 0.5, 1320, 0.08);
+      scheduleNoiseTick(time + beatDuration * 0.5, 0.055, 0.03);
+      scheduleToneTick(time + beatDuration * 0.5, 1480, 0.06);
+    } else if (beatIndex % 2 === 1) {
+      // Soft backbeat tick for quiz-show pulse
+      scheduleToneTick(time + beatDuration * 0.5, 720, 0.035);
     }
 
-    // Warm marimba-like melodic note
+    // Warm marimba / electric-piano lead (triangle + light sine shimmer)
     if (mel !== null) {
       const osc = audioCtx.createOscillator();
+      const shimmer = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      const shimmerGain = audioCtx.createGain();
       osc.type = 'triangle';
+      shimmer.type = 'sine';
       osc.frequency.value = mel;
+      shimmer.frequency.value = mel * 2;
+      const peak = inBuild ? 0.4 : 0.36;
       gain.gain.setValueAtTime(0.0001, time);
-      gain.gain.exponentialRampToValueAtTime(0.42, time + 0.012);
-      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.36);
+      gain.gain.exponentialRampToValueAtTime(peak, time + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.38);
+      shimmerGain.gain.setValueAtTime(0.0001, time);
+      shimmerGain.gain.exponentialRampToValueAtTime(peak * 0.18, time + 0.012);
+      shimmerGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
       osc.connect(gain).connect(master);
+      shimmer.connect(shimmerGain).connect(master);
       osc.start(time);
-      osc.stop(time + 0.4);
+      osc.stop(time + 0.42);
+      shimmer.start(time);
+      shimmer.stop(time + 0.32);
     }
 
-    // Soft pizzicato bass pulse on even beats (and every beat in final 4s)
-    if (beatIndex % 2 === 0 || idx >= 112) {
+    // Soft pizzicato bass — every beat in build, even beats otherwise
+    if (beatIndex % 2 === 0 || inBuild) {
       const bOsc = audioCtx.createOscillator();
       const bGain = audioCtx.createGain();
       bOsc.type = 'sine';
       bOsc.frequency.value = bass;
       bGain.gain.setValueAtTime(0.0001, time);
-      bGain.gain.exponentialRampToValueAtTime(0.32, time + 0.014);
-      bGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.4);
+      bGain.gain.exponentialRampToValueAtTime(inBuild ? 0.3 : 0.26, time + 0.012);
+      bGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.42);
       bOsc.connect(bGain).connect(master);
       bOsc.start(time);
-      bOsc.stop(time + 0.44);
+      bOsc.stop(time + 0.46);
     }
 
-    // Subtle warm chord pad swell every 4 beats in sections 2–4
+    // Subtle warm chord pad swell every 4 beats
     const pad = PAD_CHORDS[idx];
     if (pad) {
-      const padDur = beatDuration * 3.8;
+      const padDur = beatDuration * 3.85;
+      const padPeak = inBuild ? 0.08 : 0.055;
       for (const freq of pad) {
         const pOsc = audioCtx.createOscillator();
         const pGain = audioCtx.createGain();
         pOsc.type = 'sine';
         pOsc.frequency.value = freq;
         pGain.gain.setValueAtTime(0.0001, time);
-        pGain.gain.exponentialRampToValueAtTime(0.065, time + 0.18);
+        pGain.gain.exponentialRampToValueAtTime(padPeak, time + 0.16);
         pGain.gain.exponentialRampToValueAtTime(0.0001, time + padDur);
         pOsc.connect(pGain).connect(master);
         pOsc.start(time);
-        pOsc.stop(time + padDur + 0.05);
+        pOsc.stop(time + padDur + 0.04);
       }
     }
+
+    thinkMusicDiagnostics.beatsScheduled += 1;
   };
 
   const scheduler = () => {
     if (stopped) return;
-    const lookahead = audioCtx.currentTime + 0.2;
+    // Look ahead far enough for smooth gapless scheduling across timer ticks / re-renders
+    const lookahead = audioCtx.currentTime + 0.25;
     while (nextNoteTime < lookahead) {
       scheduleBeat(nextNoteTime, step);
       nextNoteTime += beatDuration;
-      step++;
+      step += 1;
     }
   };
 
   scheduler();
-  const intervalId = window.setInterval(scheduler, 80);
+  const intervalId = window.setInterval(scheduler, 50);
 
   return () => {
     if (stopped) return;
     stopped = true;
+    thinkMusicDiagnostics.active = false;
+    thinkMusicDiagnostics.stopCount += 1;
     window.clearInterval(intervalId);
     try {
       const now = audioCtx.currentTime;
@@ -314,29 +425,45 @@ export function startFinalJeopardyThinkMusic(startFromSeconds = 0): () => void {
   };
 }
 
-/** Gentle resolving chime when the Final Jeopardy countdown hits 0. */
+/** Bright resolving sting when the Final Jeopardy countdown hits 0. */
 export function playFinalJeopardyTimeUpSound(): void {
   const audioCtx = getAudioContext();
   if (!audioCtx) return;
   try {
     const now = audioCtx.currentTime;
     const master = audioCtx.createGain();
-    master.gain.value = 0.35;
+    master.gain.value = 0.38;
     master.connect(audioCtx.destination);
 
-    const tones = [587.33, 440.0, 587.33]; // D5 -> A4 -> D5
-    tones.forEach((freq, i) => {
-      const t = now + i * 0.14;
+    // Clean quiz-show resolution: rising bell arpeggio into a held tonic
+    const tones = [
+      { freq: 523.25, at: 0, dur: 0.35 }, // C5
+      { freq: 659.25, at: 0.09, dur: 0.35 }, // E5
+      { freq: 783.99, at: 0.18, dur: 0.45 }, // G5
+      { freq: 1046.5, at: 0.28, dur: 0.7 }, // C6
+    ];
+    tones.forEach(({ freq, at, dur }) => {
+      const t = now + at;
       const osc = audioCtx.createOscillator();
+      const shimmer = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      const sGain = audioCtx.createGain();
       osc.type = 'triangle';
+      shimmer.type = 'sine';
       osc.frequency.value = freq;
+      shimmer.frequency.value = freq * 2;
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.55, t + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      gain.gain.exponentialRampToValueAtTime(0.55, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      sGain.gain.setValueAtTime(0.0001, t);
+      sGain.gain.exponentialRampToValueAtTime(0.12, t + 0.015);
+      sGain.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.7);
       osc.connect(gain).connect(master);
+      shimmer.connect(sGain).connect(master);
       osc.start(t);
-      osc.stop(t + 0.5);
+      osc.stop(t + dur + 0.05);
+      shimmer.start(t);
+      shimmer.stop(t + dur * 0.75);
     });
   } catch {
     /* audio unavailable */
