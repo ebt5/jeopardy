@@ -254,6 +254,44 @@ async function runTests() {
     assertEquals(family.finalJeopardy.question, 'Who is Franklin D. Roosevelt?');
   });
 
+  await test('Game Night Mix preset loads with Merle Haggard and Black Beauty', () => {
+    const gamenight = storage.PRESET_BOARDS.find((b) => b.slug === 'gamenight');
+    assert(gamenight, 'gamenight preset must exist');
+    assertEquals(gamenight.id, 'preset-game-night-mix');
+    assertEquals(gamenight.name, 'Game Night Mix');
+    assertEquals(gamenight.finalJeopardy.category, 'CLASSIC NOVELS');
+    assertEquals(gamenight.finalJeopardy.question, 'What is Black Beauty?');
+    assertEquals(
+      gamenight.categories
+        .find((c) => c.name === 'COUNTRY MUSIC STARS')
+        ?.clues.find((c) => c.value === 1000)?.question,
+      'Who is Merle Haggard?',
+    );
+    assertEquals(
+      gamenight.categories
+        .find((c) => c.name === 'BYU ATHLETICS')
+        ?.clues.find((c) => c.value === 800)?.dailyDouble,
+      true,
+    );
+  });
+
+  await test('presetConfigFromUrl(?board=gamenight) returns Game Night Mix', () => {
+    (
+      globalThis as unknown as { window: { location: { search: string } } }
+    ).window.location.search = '?board=gamenight';
+    const base = storage.loadGameConfig();
+    const fromUrl = storage.presetConfigFromUrl(base);
+    assert(fromUrl, 'should resolve gamenight slug');
+    assertEquals(fromUrl.boardName, 'Game Night Mix');
+    assertEquals(fromUrl.finalJeopardy.category, 'CLASSIC NOVELS');
+    assertEquals(
+      fromUrl.categories
+        .find((c) => c.name === 'COUNTRY MUSIC STARS')
+        ?.clues.find((c) => c.value === 1000)?.question,
+      'Who is Merle Haggard?',
+    );
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }
