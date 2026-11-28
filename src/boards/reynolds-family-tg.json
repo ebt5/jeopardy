@@ -1,42 +1,42 @@
 {
   "name": "Reynolds Family TG",
-  "savedAt": "2026-11-27T10:00:00-07:00",
+  "savedAt": "2026-11-27T17:30:00-07:00",
   "categories": [
     {
       "name": "THANKSGIVING DINNER AT THE MOVIES",
       "clues": [
         {
           "value": 200,
-          "answer": "This beagle serves jelly beans and toast for Thanksgiving dinner in a 1973 animated special",
-          "question": "Who is Snoopy?",
+          "answer": "In a classic Friends Thanksgiving episode, Joey gets a raw one of these stuck on his head",
+          "question": "What is a turkey?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 400,
-          "answer": "Steve Martin and John Candy endure a disastrous trip home for Thanksgiving dinner in this 1987 comedy",
-          "question": "What is Planes, Trains and Automobiles?",
+          "answer": "In this 1993 sequel, Wednesday Addams turns a summer camp Thanksgiving pageant into total chaos",
+          "question": "What is Addams Family Values?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 600,
-          "answer": "Sandra Bullock's character turns off the football game so her family can join Michael Oher at the Thanksgiving table in this 2009 film",
-          "question": "What is The Blind Side?",
+          "answer": "Tim Allen's character burns the turkey in this 1994 holiday hit, forcing him and his son to eat Thanksgiving dinner at Denny's",
+          "question": "What is The Santa Clause?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 800,
-          "answer": "At a 2002 Thanksgiving dinner, Norman Osborn notices a cut on Peter Parker's arm and figures out his secret in this superhero film",
-          "question": "What is Spider-Man?",
+          "answer": "Two time-traveling turkeys named Reggie and Jake go back to 1621 to take turkey off the menu in this 2013 animated comedy",
+          "question": "What is Free Birds?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 1000,
-          "answer": "In this 1976 boxing classic, Paulie angrily hurls the Thanksgiving turkey out into the alley",
-          "question": "What is Rocky?",
+          "answer": "This 1942 Bing Crosby and Fred Astaire musical features \"I've Got Plenty to Be Thankful For\" and also introduced \"White Christmas\"",
+          "question": "What is Holiday Inn?",
           "played": false,
           "dailyDouble": false
         }
@@ -47,36 +47,36 @@
       "clues": [
         {
           "value": 200,
-          "answer": "This pop star thanked her exes and moved on in her 2018 hit \"thank u, next\"",
-          "question": "Who is Ariana Grande?",
+          "answer": "Saying \"gracias\" in Spanish or \"merci\" in this language both mean \"thank you\"",
+          "question": "What is French?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 400,
-          "answer": "In Moana, Maui sings this 2-word song, the polite reply to \"thank you\"",
-          "question": "What is \"You're Welcome\"?",
+          "answer": "In Styx's 1983 hit \"Mr. Roboto,\" the Japanese phrase \"domo arigato\" means this",
+          "question": "What is \"thank you very much\"?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 600,
-          "answer": "\"Thank You for Being a Friend\" is the theme song of this sitcom about four women sharing a house in Miami",
-          "question": "What is The Golden Girls?",
+          "answer": "John Denver topped the charts in 1975 with this upbeat fiddle anthem celebrating rural life",
+          "question": "What is \"Thank God I'm a Country Boy\"?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 800,
-          "answer": "This Swedish supergroup of \"Dancing Queen\" fame also sang \"Thank You for the Music\"",
-          "question": "Who is ABBA?",
+          "answer": "Bob Hope closed nearly every TV special for decades with this signature theme song",
+          "question": "What is \"Thanks for the Memory\"?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 1000,
-          "answer": "Eminem's 2000 hit \"Stan\" samples the song \"Thank You\" by this one-named British singer",
-          "question": "Who is Dido?",
+          "answer": "In 1998, Alanis Morissette thanked India, terror, and disillusionment in this hit single",
+          "question": "What is \"Thank U\"?",
           "played": false,
           "dailyDouble": false
         }
@@ -87,29 +87,29 @@
       "clues": [
         {
           "value": 200,
-          "answer": "Historians agree no Thanksgiving in recorded history has been complete without this beloved masterpiece of green legumes, cream of mushroom soup and a crown of crunchy fried onions",
-          "question": "What is green bean casserole?",
+          "answer": "After dinner, two people pull on this Y-shaped turkey bone to see whose wish comes true",
+          "question": "What is the wishbone?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 400,
-          "answer": "This tart red sauce often slides out of the can still showing the ridges",
-          "question": "What is cranberry sauce?",
+          "answer": "This amino acid in turkey is famously blamed for post-dinner sleepiness, even though chicken has about the same amount",
+          "question": "What is tryptophan?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 600,
-          "answer": "It's the fleshy flap that dangles over a turkey's beak",
-          "question": "What is a snood?",
+          "answer": "This classic Southern Thanksgiving dessert is made with corn syrup, butter, eggs, and a layer of crunchy nuts on top",
+          "question": "What is pecan pie?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 800,
-          "answer": "Each year the President spares a turkey's life in this White House ceremony",
-          "question": "What is the turkey pardon?",
+          "answer": "A male turkey is a tom and a female is a hen, while a baby turkey is called this",
+          "question": "What is a poult?",
           "played": false,
           "dailyDouble": false
         },
@@ -127,15 +127,15 @@
       "clues": [
         {
           "value": 200,
-          "answer": "This department store has run New York City's famous Thanksgiving Day Parade since 1924",
-          "question": "What is Macy's?",
+          "answer": "This Texas NFL team has hosted a Thanksgiving Day game almost every year since 1966",
+          "question": "Who are the Dallas Cowboys?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 400,
-          "answer": "This Motor City NFL team has hosted a Thanksgiving game nearly every year since 1934",
-          "question": "Who are the Detroit Lions?",
+          "answer": "The giant balloons in the Macy's Thanksgiving Day Parade are filled with this lighter-than-air gas",
+          "question": "What is helium?",
           "played": false,
           "dailyDouble": false
         },
@@ -148,15 +148,15 @@
         },
         {
           "value": 800,
-          "answer": "Kris Kringle plays Santa in the Macy's Thanksgiving parade at the start of this 1947 holiday film",
-          "question": "What is Miracle on 34th Street?",
+          "answer": "In 1989, this legendary NFL broadcaster started the Thanksgiving tradition of awarding a turkey leg to the game's MVP",
+          "question": "Who is John Madden?",
           "played": false,
           "dailyDouble": true
         },
         {
           "value": 1000,
-          "answer": "Worth 2 points, it's scored when the offense gets tackled in its own end zone",
-          "question": "What is a safety?",
+          "answer": "The Macy's Thanksgiving Day Parade marches down Manhattan to end at this famous square in front of Macy's flagship store",
+          "question": "What is Herald Square?",
           "played": false,
           "dailyDouble": false
         }
@@ -167,36 +167,36 @@
       "clues": [
         {
           "value": 200,
-          "answer": "Dried, chewy snack meat made from a gobbler",
-          "question": "What is turkey jerky?",
+          "answer": "A sweet potato that's a total fraud",
+          "question": "What is a sham yam?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 400,
-          "answer": "The brown sauce served to sailors",
-          "question": "What is navy gravy?",
+          "answer": "A dinner bun you eat while taking a walk",
+          "question": "What is a stroll roll?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 600,
-          "answer": "The fellow in charge of baking dessert",
-          "question": "Who is the pie guy?",
+          "answer": "An eccentric, oddball Thanksgiving bird",
+          "question": "What is a quirky turkey?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 800,
-          "answer": "A big animal served at the holiday meal",
-          "question": "What is a feast beast?",
+          "answer": "A warm autumn apple drink covered in cobwebs",
+          "question": "What is spider cider?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 1000,
-          "answer": "Bread cubes that are only pretending",
-          "question": "What is bluffing stuffing?",
+          "answer": "A helping of whipped potatoes that vanishes in an instant",
+          "question": "What is a flash mash?",
           "played": false,
           "dailyDouble": false
         }
@@ -207,36 +207,36 @@
       "clues": [
         {
           "value": 200,
-          "answer": "Homer, Marge, Bart, Lisa and Maggie",
-          "question": "Who are the Simpsons?",
+          "answer": "Fred, Wilma, and Pebbles live in Bedrock as this prehistoric cartoon family",
+          "question": "Who are the Flintstones?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 400,
-          "answer": "Bob, Helen, Violet, Dash and baby Jack-Jack, also known as The Incredibles",
-          "question": "Who are the Parrs?",
+          "answer": "Gomez, Morticia, Wednesday, and Pugsley make up this spooky, kooky family",
+          "question": "Who are the Addamses?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 600,
-          "answer": "Harry Potter's best friend Ron belongs to this red-headed wizarding family",
-          "question": "Who are the Weasleys?",
+          "answer": "On Full House, Danny, D.J., Stephanie, and Michelle share this last name",
+          "question": "Who are the Tanners?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 800,
-          "answer": "Everyone in this Encanto family gets a magical gift except Mirabel",
-          "question": "Who are the Madrigals?",
+          "answer": "Ward, June, Wally, and Theodore (\"Beaver\") were the classic 1950s TV family with this surname",
+          "question": "Who are the Cleavers?",
           "played": false,
           "dailyDouble": false
         },
         {
           "value": 1000,
-          "answer": "\"Here's the story of a lovely lady\" begins the theme song for this 1970s TV family with six kids",
-          "question": "Who are the Bradys?",
+          "answer": "In Pride and Prejudice, Elizabeth, Jane, Mary, Kitty, and Lydia are the five daughters of this English family",
+          "question": "Who are the Bennets?",
           "played": false,
           "dailyDouble": false
         }
@@ -244,8 +244,8 @@
     }
   ],
   "finalJeopardy": {
-    "category": "PRESIDENTS",
-    "answer": "Critics called it 'Franksgiving' when this president moved the holiday up a week in 1939 to stretch the Christmas shopping season",
-    "question": "Who is Franklin D. Roosevelt?"
+    "category": "THANKSGIVING HISTORY",
+    "answer": "Before landing at Plymouth in 1620, the Pilgrims signed this governing document aboard their ship",
+    "question": "What is the Mayflower Compact?"
   }
 }

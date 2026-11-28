@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "npx tsx src/buzzer/clock-sync.test.ts && npx tsx src/buzzer/final-jeopardy.test.ts && npx tsx src/buzzer/phone-session.test.ts && npx tsx src/sound.test.ts",
+    "test": "npx tsx src/buzzer/clock-sync.test.ts && npx tsx src/buzzer/final-jeopardy.test.ts && npx tsx src/buzzer/phone-session.test.ts && npx tsx src/sound.test.ts && npx tsx src/storage.test.ts",
     "test:e2e:music": "npx tsx tests/fj-think-music-e2e.ts"
   },
   "dependencies": {
