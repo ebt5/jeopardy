@@ -50,7 +50,9 @@ export function loadGameConfig(): GameConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createBlankGame();
     const parsed = JSON.parse(raw) as Partial<GameConfig>;
-    return normalizeGameConfig(parsed) ?? createBlankGame();
+    const config = normalizeGameConfig(parsed) ?? createBlankGame();
+    // Built-in boards always refresh from the bundle so clue updates land on reload
+    return refreshGameConfigFromPresets(config);
   } catch {
     return createBlankGame();
   }
@@ -106,10 +108,72 @@ export function presetConfigFromUrl(base: GameConfig): GameConfig | null {
   };
 }
 
+/** True when bundled preset.savedAt is strictly newer than the stored copy's savedAt. */
+export function isPresetNewerThanStored(
+  presetSavedAt: string,
+  storedSavedAt: string | undefined,
+): boolean {
+  if (!storedSavedAt) return true;
+  const presetMs = Date.parse(presetSavedAt);
+  const storedMs = Date.parse(storedSavedAt);
+  if (Number.isNaN(presetMs)) return false;
+  if (Number.isNaN(storedMs)) return true;
+  return presetMs > storedMs;
+}
+
+/**
+ * Replace localStorage copies of built-in presets when the bundled board is newer.
+ * Matches by preset id only — never deletes or rewrites user-created boards
+ * (ids that are not in PRESET_BOARDS).
+ */
+export function refreshStalePresetBoards(stored: SavedBoard[]): {
+  boards: SavedBoard[];
+  didChange: boolean;
+} {
+  const presetById = new Map(PRESET_BOARDS.map((p) => [p.id, p]));
+  let didChange = false;
+  const boards = stored.map((board) => {
+    const preset = presetById.get(board.id);
+    if (!preset) return board;
+    if (!isPresetNewerThanStored(preset.savedAt, board.savedAt)) return board;
+    didChange = true;
+    return normalizeBoards([preset as SavedBoard])[0];
+  });
+  return { boards, didChange };
+}
+
+/**
+ * If the active game is a built-in preset board (matched by boardName), overlay the
+ * latest bundled categories + Final Jeopardy so a refresh picks up clue updates even
+ * when jeopardy-game-config still holds an older snapshot.
+ */
+export function refreshGameConfigFromPresets(config: GameConfig): GameConfig {
+  if (!config.boardName) return config;
+  const preset = PRESET_BOARDS.find((p) => p.name === config.boardName);
+  if (!preset) return config;
+  const [board] = normalizeBoards([preset as SavedBoard]);
+  return {
+    ...config,
+    categories: board.categories,
+    finalJeopardy: board.finalJeopardy,
+    boardName: board.name,
+  };
+}
+
 export function loadSavedBoards(): SavedBoard[] {
   const stored = loadStoredBoards();
-  const ids = new Set(stored.map((b) => b.id));
-  return [...stored, ...normalizeBoards(PRESET_BOARDS.filter((b) => !ids.has(b.id)))];
+  const { boards: refreshed, didChange } = refreshStalePresetBoards(stored);
+  if (didChange) {
+    // Persist refreshed presets so subsequent loads stay in sync without wiping user boards
+    saveSavedBoards(refreshed);
+  }
+  const ids = new Set(refreshed.map((b) => b.id));
+  return [
+    ...refreshed,
+    ...normalizeBoards(
+      PRESET_BOARDS.filter((b) => !ids.has(b.id)).map((b) => b as SavedBoard),
+    ),
+  ];
 }
 
 function loadStoredBoards(): SavedBoard[] {
