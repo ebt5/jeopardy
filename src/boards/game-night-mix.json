@@ -1,0 +1,251 @@
+{
+  "name": "Game Night Mix",
+  "savedAt": "2026-11-27T18:30:00-07:00",
+  "categories": [
+    {
+      "name": "HORSES",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "A young male horse is a colt, and a young female horse is called this",
+          "question": "What is a filly?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "A horse's height is measured in these units, each equal to 4 inches",
+          "question": "What are hands?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "In 1973, this horse won the Belmont Stakes by 31 lengths to clinch the Triple Crown",
+          "question": "Who is Secretariat?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Named for its speed over a short sprint distance, this is the most popular horse breed registered in America",
+          "question": "What is the American Quarter Horse?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "Napoleon rode this small gray Arabian stallion, whose skeleton is now displayed in London's National Army Museum",
+          "question": "Who is Marengo?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "S-WORDS",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "The \"ugly duckling\" in the fairy tale grows up to be one of these graceful birds",
+          "question": "What is a swan?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "Shakespeare wrote 154 of these 14-line poems",
+          "question": "What is a sonnet?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "This Spanish word names a short afternoon nap",
+          "question": "What is a siesta?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Originally made from cuttlefish ink, this reddish-brown tone gives old photographs their antique look",
+          "question": "What is sepia?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "This fancy word describes a person who walks in their sleep",
+          "question": "What is a somnambulist?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "BOARD GAMES",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Boardwalk and Park Place are the priciest properties in this classic game",
+          "question": "What is Monopoly?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "\"Colonel Mustard, in the library, with the candlestick\" might win you this mystery game",
+          "question": "What is Clue?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "In this word game, the Q and the Z are each worth 10 points",
+          "question": "What is Scrabble?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "In this 1995 German game, players trade brick, wood, sheep, wheat, and ore to build roads and settlements",
+          "question": "What is Settlers of Catan?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "Called weiqi in China, this ancient strategy game has players place black and white stones on a 19-by-19 grid",
+          "question": "What is Go?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "BYU ATHLETICS",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "BYU's sports teams go by this big-cat nickname",
+          "question": "Who are the Cougars?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "This BYU quarterback and great-great-great-grandson of Brigham Young went on to win three Super Bowls with the 49ers",
+          "question": "Who is Steve Young?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "In 2011, this BYU sharpshooter led the nation in scoring and sparked \"Jimmermania\"",
+          "question": "Who is Jimmer Fredette?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "In 1990, this BYU quarterback became the school's first Heisman Trophy winner",
+          "question": "Who is Ty Detmer?",
+          "played": false,
+          "dailyDouble": true
+        },
+        {
+          "value": 1000,
+          "answer": "BYU's football stadium is named for this coach, who led the Cougars to the 1984 national championship",
+          "question": "Who is LaVell Edwards?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "BOOKS MADE INTO MOVIES",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "Atticus Finch defends Tom Robinson in this Harper Lee novel, made into a 1962 Gregory Peck film",
+          "question": "What is To Kill a Mockingbird?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "Katniss Everdeen volunteers as tribute in this Suzanne Collins novel and 2012 film",
+          "question": "What is The Hunger Games?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "Scarlett O'Hara is the heroine of this 1936 Margaret Mitchell novel that became a 1939 Best Picture winner",
+          "question": "What is Gone with the Wind?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "Ernest Cline's novel about a treasure hunt inside the OASIS virtual world was directed for the screen by Steven Spielberg in 2018",
+          "question": "What is Ready Player One?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "Winston Groom's 1986 novel became this 1994 Tom Hanks film that won Best Picture",
+          "question": "What is Forrest Gump?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    },
+    {
+      "name": "COUNTRY MUSIC STARS",
+      "clues": [
+        {
+          "value": 200,
+          "answer": "He's got \"Friends in Low Places\"",
+          "question": "Who is Garth Brooks?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 400,
+          "answer": "This singer of \"Ring of Fire\" was known as the \"Man in Black\"",
+          "question": "Who is Johnny Cash?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 600,
+          "answer": "His 1992 hit \"Achy Breaky Heart\" started a line-dancing craze, and his daughter Miley became a star too",
+          "question": "Who is Billy Ray Cyrus?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 800,
+          "answer": "This Kentucky-born singer told her life story in \"Coal Miner's Daughter\"",
+          "question": "Who is Loretta Lynn?",
+          "played": false,
+          "dailyDouble": false
+        },
+        {
+          "value": 1000,
+          "answer": "This Bakersfield sound legend sang \"Mama Tried\" and \"Okie from Muskogee\"",
+          "question": "Who is Merle Haggard?",
+          "played": false,
+          "dailyDouble": false
+        }
+      ]
+    }
+  ],
+  "finalJeopardy": {
+    "category": "CLASSIC NOVELS",
+    "answer": "Narrated by the horse itself, Anna Sewell's 1877 novel was written to promote kinder treatment of horses",
+    "question": "What is Black Beauty?"
+  }
+}
